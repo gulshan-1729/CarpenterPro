@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Quotations from "../pages/quotations/Quotations";
 import Login from "../pages/auth/Login";
 import Dashboard from "../pages/dashboard/Dashboard";
 import QuotationCalculator from "../pages/quotations/QuotationCalculator";
@@ -28,11 +27,6 @@ const AppRoutes = () => {
         <Route
           path="/customers"
           element={<Customers />}
-        />
-
-        <Route 
-          path="/quotations"
-          element={<Quotations />}
         />
 
       </Routes>
