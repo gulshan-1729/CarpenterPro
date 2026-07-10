@@ -23,6 +23,7 @@ const QuotationCalculator = () => {
   const [gst, setGst] = useState(18);
   const [discount, setDiscount] = useState(0);
   const [quotations, setQuotations] = useState([]);
+  const [editingId, setEditingId] = useState(null);
 
   const area =
     Number(length || 0) *
@@ -55,21 +56,68 @@ const QuotationCalculator = () => {
     alert("Please fill all fields");
     return;
   }
-
   const newQuotation = {
-    id: Date.now(),
-    customer,
-    furniture,
-    total: grandTotal,
-    date: new Date().toLocaleDateString(),
-  };
+   id: Date.now(),
+   customer,
+   furniture,
+   length,
+   width,
+   rate,
+   gst,
+   discount,
+   total: grandTotal,
+   date: new Date().toLocaleDateString(),
+   };
 
   setQuotations([
-    ...quotations,
-    newQuotation,
-  ]);
+   ...quotations,
+   newQuotation,
+]);
 
   alert("Quotation Saved Successfully");
+};
+
+  const handleDeleteQuotation = (id) => {
+  setQuotations(
+    quotations.filter(
+      (quotation) => quotation.id !== id
+    )
+  );
+};
+  const handleEditQuotation = (quotation) => {
+  setCustomer(quotation.customer);
+  setFurniture(quotation.furniture);
+  setLength(quotation.length);
+  setWidth(quotation.width);
+  setRate(quotation.rate);
+  setGst(quotation.gst);
+  setDiscount(quotation.discount);
+
+  setEditingId(quotation.id);
+};
+
+  const handleUpdateQuotation = () => {
+  const updatedQuotations = quotations.map((quotation) =>
+    quotation.id === editingId
+      ? {
+          ...quotation,
+          customer,
+          furniture,
+          length,
+          width,
+          rate,
+          gst,
+          discount,
+          total: grandTotal,
+        }
+      : quotation
+  );
+
+  setQuotations(updatedQuotations);
+
+  setEditingId(null);
+
+  alert("Quotation Updated Successfully");
 };
 
   return (
@@ -277,11 +325,17 @@ const QuotationCalculator = () => {
 
           <div className="mt-8 flex flex-wrap gap-4">
 
-           <button
-            onClick={handleSaveQuotation}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold"
+         <button
+            onClick={
+            editingId
+            ? handleUpdateQuotation
+            : handleSaveQuotation
+           }
+           className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300"
            >
-            Save Quotation
+           {editingId
+           ? "Update Quotation"
+           : "Save Quotation"}
            </button>
 
             <button
@@ -303,29 +357,29 @@ const QuotationCalculator = () => {
 
       <table className="w-full bg-slate-800 rounded-xl overflow-hidden">
 
-        <thead>
+     <thead>
+      <tr className="bg-slate-700 text-white">
+      <th className="p-4 text-left">
+      Customer
+     </th>
 
-          <tr className="bg-slate-700 text-white">
+     <th className="p-4 text-left">
+       Furniture
+    </th>
 
-            <th className="p-4 text-left">
-              Customer
-            </th>
+     <th className="p-4 text-left">
+      Total
+     </th>
 
-            <th className="p-4 text-left">
-              Furniture
-            </th>
+     <th className="p-4 text-left">
+      Date
+     </th>
 
-            <th className="p-4 text-left">
-              Total
-            </th>
-
-            <th className="p-4 text-left">
-              Date
-            </th>
-
-          </tr>
-
-        </thead>
+     <th className="p-4 text-left">
+      Action
+     </th>
+     </tr>
+     </thead>
 
         <tbody>
 
@@ -351,6 +405,24 @@ const QuotationCalculator = () => {
               <td className="p-4">
                 {quotation.date}
               </td>
+
+             <td className="text-center align-middle">
+              <div className="flex justify-center items-center gap-3">
+              <button
+              onClick={() => handleEditQuotation(quotation)}
+              className="w-24 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg"
+             >
+              Edit
+              </button>
+
+              <button
+              onClick={() => handleDeleteQuotation(quotation.id)}
+              className="w-24 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg"
+              >
+               Delete
+              </button>
+            </div>
+            </td>
 
             </tr>
 
