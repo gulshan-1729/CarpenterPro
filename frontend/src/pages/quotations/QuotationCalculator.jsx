@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import MainLayout from "../../components/layout/MainLayout";
+import jsPDF from "jspdf";
+import { useRef } from "react";
 
 const furnitureRates = {
   Bed: 500,
@@ -22,8 +24,23 @@ const QuotationCalculator = () => {
   const [width, setWidth] = useState("");
   const [gst, setGst] = useState(18);
   const [discount, setDiscount] = useState(0);
-  const [quotations, setQuotations] = useState([]);
+  const [quotations, setQuotations] = useState(() => {
+  const savedQuotations =
+    localStorage.getItem("quotations");
+
+  return savedQuotations
+    ? JSON.parse(savedQuotations)
+    : [];
+});
   const [editingId, setEditingId] = useState(null);
+  const [invoice, setInvoice] = useState(null);
+
+  useEffect(() => {
+  localStorage.setItem(
+    "quotations",
+    JSON.stringify(quotations)
+  );
+}, [quotations]);
 
   const area =
     Number(length || 0) *
@@ -119,6 +136,73 @@ const QuotationCalculator = () => {
 
   alert("Quotation Updated Successfully");
 };
+
+  const handleGenerateInvoice = () => {
+  setInvoice({
+    invoiceNo: `INV-${Date.now()}`,
+    customer,
+    furniture,
+    length,
+    width,
+    rate,
+    gst,
+    discount,
+    total: grandTotal,
+    date: new Date().toLocaleDateString(),
+  });
+};
+  const downloadPDF = () => {
+  const pdf = new jsPDF();
+
+  pdf.setFontSize(20);
+  pdf.text("Sharma Interiors & Furniture", 20, 20);
+
+  pdf.setFontSize(12);
+  pdf.text("Phone: 9960040174", 20, 30);
+  pdf.text("Email: ayodhyasharma06@gmail.com", 20, 38);
+
+  pdf.line(20, 45, 190, 45);
+
+  pdf.text(`Invoice No: ${invoice.invoiceNo}`, 20, 60);
+  pdf.text(`Date: ${invoice.date}`, 120, 60);
+
+  pdf.text(`Customer: ${invoice.customer}`, 20, 75);
+  pdf.text(`Furniture: ${invoice.furniture}`, 20, 85);
+
+  pdf.text(`Length: ${invoice.length} ft`, 20, 95);
+  pdf.text(`Width: ${invoice.width} ft`, 20, 105);
+
+  pdf.text(`Rate: ₹${invoice.rate}`, 20, 115);
+  pdf.text(`GST: ${invoice.gst}%`, 20, 125);
+  pdf.text(`Discount: ${invoice.discount}%`, 20, 135);
+
+  pdf.setFontSize(16);
+  pdf.text(
+    `Grand Total: ₹${Number(invoice.total).toLocaleString("en-IN")}`,
+    20,
+    155
+  );
+
+  pdf.line(20, 170, 190, 170);
+
+  pdf.setFontSize(12);
+  pdf.text(
+    "Authorized Signature",
+    140,
+    190
+  );
+
+  pdf.text(
+    "Sharma Interiors & Furniture",
+    120,
+    200
+  );
+
+  pdf.save(
+    `Invoice_${invoice.customer}.pdf`
+  );
+};
+
 
   return (
     <MainLayout>
@@ -338,16 +422,102 @@ const QuotationCalculator = () => {
            : "Save Quotation"}
            </button>
 
-            <button
-              className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-semibold"
+           <button
+            onClick={handleGenerateInvoice}
+            className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-semibold"
             >
-              Generate Invoice
+            Generate Invoice
             </button>
 
           </div>
 
         {quotations.length > 0 && (
   <div className="mt-10">
+
+      {invoice && (
+        <div
+        className="mt-8 bg-slate-800 rounded-xl p-6 shadow-lg"
+        >
+     <h2 className="text-2xl font-bold text-white mb-4">
+      Invoice
+     </h2>
+
+  <div className="text-center border-b border-slate-600 pb-4 mb-6">
+     <h1 className="text-3xl font-bold text-white">
+     Sharma Interiors & Furniture
+     </h1>
+
+  <p className="text-slate-300 mt-2">
+    Phone: 9960040174
+  </p>
+
+  <p className="text-slate-300">
+    Email: ayodhyasharma06@gmail.com
+  </p>
+</div>
+
+    <div className="grid grid-cols-2 gap-4 text-white">
+      <p>
+        <strong>Invoice No:</strong> {invoice.invoiceNo}
+      </p>
+
+      <p>
+        <strong>Date:</strong> {invoice.date}
+      </p>
+
+      <p>
+        <strong>Customer:</strong> {invoice.customer}
+      </p>
+
+      <p>
+        <strong>Furniture:</strong> {invoice.furniture}
+      </p>
+
+      <p>
+        <strong>Length:</strong> {invoice.length}
+      </p>
+
+      <p>
+        <strong>Width:</strong> {invoice.width}
+      </p>
+
+      <p>
+        <strong>Rate:</strong> ₹{invoice.rate}
+      </p>
+
+      <p>
+        <strong>GST:</strong> {invoice.gst}%
+      </p>
+
+      <p>
+        <strong>Discount:</strong> {invoice.discount}%
+      </p>
+
+      <p className="text-green-400 font-bold text-xl">
+        Grand Total: ₹{Number(invoice.total).toLocaleString("en-IN")}
+      </p>
+    </div>
+
+        <div className="mt-8 border-t border-slate-600 pt-4 text-right">
+        <p className="text-white font-semibold">
+        Authorized Signature
+        </p>
+
+        <p className="text-slate-300">
+         Sharma Interiors & Furniture
+        </p>
+        </div>
+
+       <div className="mt-6 text-center">
+        <button
+         onClick={downloadPDF}
+         className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-semibold"
+        >
+          Download PDF
+          </button>
+        </div>
+  </div>
+)}
 
     <h2 className="text-2xl font-bold text-white mb-4">
       Quotation History
