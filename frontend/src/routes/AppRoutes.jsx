@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Login from "../pages/auth/Login";
 import Dashboard from "../pages/dashboard/Dashboard";
-import QuotationCalculator from "../pages/quotations/QuotationCalculator";
+import QuotationV2 from "../pages/quotations/QuotationV2";
 import Furniture from "../pages/furniture/Furniture";
 import Customers from "../pages/customers/Customers";
 
@@ -15,8 +15,8 @@ const AppRoutes = () => {
         <Route path="/dashboard" element={<Dashboard />} />
 
         <Route
-          path="/quotations"
-          element={<QuotationCalculator />}
+           path="/quotations"
+           element={<QuotationV2 />}
         />
 
         <Route
