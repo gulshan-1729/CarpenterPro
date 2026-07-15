@@ -4,29 +4,75 @@ import MainLayout from "../../components/layout/MainLayout";
 const Dashboard = () => {
   const [totalQuotations, setTotalQuotations] = useState(0);
   const [totalRevenue, setTotalRevenue] = useState(0);
+  const [monthlyRevenue, setMonthlyRevenue] = useState(0);
+  const [totalCustomers, setTotalCustomers] = useState(0);
   const [recentQuotations, setRecentQuotations] = useState([]);
 
   useEffect(() => {
     const quotations =
       JSON.parse(
-        localStorage.getItem("quotations")
+        localStorage.getItem("quotationsV2")
       ) || [];
+
+    const customers =
+      JSON.parse(
+        localStorage.getItem("customers")
+      ) || [];
+
+    setTotalCustomers(customers.length);
 
     setTotalQuotations(
       quotations.length
     );
 
-    const revenue =
-      quotations.reduce(
-        (sum, quotation) =>
-          sum + quotation.total,
-        0
-      );
+    const revenue = quotations.reduce(
+      (sum, quotation) =>
+        sum +
+        Number(
+          quotation.grandTotal || 0
+        ),
+      0
+    );
 
     setTotalRevenue(revenue);
 
+    const currentMonth =
+      new Date().getMonth();
+
+    const currentYear =
+      new Date().getFullYear();
+
+    const monthRevenue =
+      quotations
+        .filter((quotation) => {
+          const d = new Date(
+            quotation.date
+          );
+
+          return (
+            d.getMonth() ===
+              currentMonth &&
+            d.getFullYear() ===
+              currentYear
+          );
+        })
+        .reduce(
+          (sum, quotation) =>
+            sum +
+            Number(
+              quotation.grandTotal || 0
+            ),
+          0
+        );
+
+    setMonthlyRevenue(
+      monthRevenue
+    );
+
     setRecentQuotations(
-      quotations.slice(-5).reverse()
+      quotations
+        .slice(-5)
+        .reverse()
     );
   }, []);
 
@@ -42,29 +88,19 @@ const Dashboard = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
 
-          <div className="bg-slate-900 rounded-2xl p-6">
+          <div className="bg-slate-900 rounded-2xl p-6 shadow-lg">
             <h3 className="text-slate-400">
-              Customers
+              Total Customers
             </h3>
 
             <p className="text-3xl text-white font-bold mt-2">
-              4
+              {totalCustomers}
             </p>
           </div>
 
-          <div className="bg-slate-900 rounded-2xl p-6">
+          <div className="bg-slate-900 rounded-2xl p-6 shadow-lg">
             <h3 className="text-slate-400">
-              Furniture Types
-            </h3>
-
-            <p className="text-3xl text-white font-bold mt-2">
-              4
-            </p>
-          </div>
-
-          <div className="bg-slate-900 rounded-2xl p-6">
-            <h3 className="text-slate-400">
-              Quotations
+              Total Quotations
             </h3>
 
             <p className="text-3xl text-blue-400 font-bold mt-2">
@@ -72,13 +108,29 @@ const Dashboard = () => {
             </p>
           </div>
 
-          <div className="bg-slate-900 rounded-2xl p-6">
+          <div className="bg-slate-900 rounded-2xl p-6 shadow-lg">
             <h3 className="text-slate-400">
-              Revenue
+              Total Revenue
             </h3>
 
             <p className="text-3xl text-green-400 font-bold mt-2">
-              ₹{totalRevenue.toLocaleString("en-IN")}
+              ₹
+              {totalRevenue.toLocaleString(
+                "en-IN"
+              )}
+            </p>
+          </div>
+
+          <div className="bg-slate-900 rounded-2xl p-6 shadow-lg">
+            <h3 className="text-slate-400">
+              This Month Revenue
+            </h3>
+
+            <p className="text-3xl text-yellow-400 font-bold mt-2">
+              ₹
+              {monthlyRevenue.toLocaleString(
+                "en-IN"
+              )}
             </p>
           </div>
 
@@ -92,9 +144,9 @@ const Dashboard = () => {
             Recent Quotations
           </h2>
 
-          <div className="overflow-x-auto w-full">
+          <div className="overflow-x-auto">
 
-           <table className="min-w-[700px] w-full bg-slate-900 rounded-xl overflow-hidden">
+            <table className="min-w-[700px] w-full bg-slate-900 rounded-xl overflow-hidden">
 
               <thead>
                 <tr className="bg-slate-700 text-white">
@@ -120,31 +172,49 @@ const Dashboard = () => {
 
               <tbody>
 
-                {recentQuotations.length > 0 ? (
+                {recentQuotations.length >
+                0 ? (
                   recentQuotations.map(
                     (quotation) => (
                       <tr
-                        key={quotation.id}
-                        className="border-t border-slate-700 text-white"
+                        key={
+                          quotation.id
+                        }
+                        className="border-t border-slate-700 text-white hover:bg-slate-800 transition"
                       >
 
                         <td className="p-4">
-                          {quotation.customer}
+                          {
+                            quotation.customerName
+                          }
                         </td>
 
                         <td className="p-4">
-                          {quotation.furniture}
+                          {quotation.items
+                            ?.map(
+                              (
+                                item
+                              ) =>
+                                item.furnitureName
+                            )
+                            .join(
+                              ", "
+                            )}
                         </td>
 
-                        <td className="p-4 text-green-400">
+                        <td className="p-4 text-green-400 font-semibold">
                           ₹
-                          {quotation.total.toLocaleString(
+                          {Number(
+                            quotation.grandTotal
+                          ).toLocaleString(
                             "en-IN"
                           )}
                         </td>
 
                         <td className="p-4">
-                          {quotation.date}
+                          {
+                            quotation.date
+                          }
                         </td>
 
                       </tr>

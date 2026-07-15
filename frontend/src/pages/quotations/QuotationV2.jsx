@@ -13,6 +13,8 @@ const QuotationV2 = () => {
   const [address, setAddress] = useState("");
   const [customers, setCustomers] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState("newest");
 
   // ==========================
   // TAX SETTINGS
@@ -334,6 +336,49 @@ if (editingId) {
     }
   };
 
+  const totalRevenue = quotations.reduce(
+  (sum, quotation) =>
+    sum + Number(quotation.grandTotal || 0),
+  0
+);
+
+const averageQuotation =
+  quotations.length > 0
+    ? totalRevenue / quotations.length
+    : 0;
+
+const filteredQuotations = [...quotations]
+  .filter(
+    (quotation) =>
+      quotation.customerName
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      quotation.invoiceNo
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase())
+  )
+  .sort((a, b) => {
+    switch (sortBy) {
+      case "oldest":
+        return a.id - b.id;
+
+      case "highest":
+        return (
+          Number(b.grandTotal) -
+          Number(a.grandTotal)
+        );
+
+      case "lowest":
+        return (
+          Number(a.grandTotal) -
+          Number(b.grandTotal)
+        );
+
+      default:
+        return b.id - a.id;
+    }
+  });
+
   // ==========================
 // UI
 // ==========================
@@ -343,7 +388,7 @@ return (
     <div className="max-w-7xl mx-auto">
 
       <h1 className="text-3xl font-bold text-white mb-6">
-        Smart Quotation V2
+        Smart Quotation
       </h1>
 
       <div className="bg-slate-900 rounded-3xl p-6">
@@ -732,6 +777,83 @@ return (
 
         <div className="mt-12">
 
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+
+  <div className="bg-slate-800 p-5 rounded-xl">
+    <p className="text-slate-400">
+      Total Quotations
+    </p>
+
+    <h3 className="text-3xl font-bold text-white">
+      {quotations.length}
+    </h3>
+  </div>
+
+  <div className="bg-slate-800 p-5 rounded-xl">
+    <p className="text-slate-400">
+      Total Revenue
+    </p>
+
+    <h3 className="text-3xl font-bold text-green-400">
+      ₹{totalRevenue.toLocaleString("en-IN")}
+    </h3>
+  </div>
+
+  <div className="bg-slate-800 p-5 rounded-xl">
+    <p className="text-slate-400">
+      Average Quote
+    </p>
+
+    <h3 className="text-3xl font-bold text-blue-400">
+      ₹{averageQuotation.toLocaleString(
+        "en-IN",
+        {
+          maximumFractionDigits: 0,
+        }
+      )}
+    </h3>
+  </div>
+
+</div>
+
+          <div className="mb-6 flex flex-col md:flex-row gap-4 justify-between">
+
+          <input
+             type="text"
+             placeholder="Search Customer or Invoice..."
+             value={searchTerm}
+             onChange={(e) =>
+             setSearchTerm(e.target.value)
+            }
+            className="bg-slate-800 text-white px-4 py-3 rounded-xl w-full md:w-80"
+          />
+
+          <select
+            value={sortBy}
+            onChange={(e) =>
+            setSortBy(e.target.value)
+          }
+            className="bg-slate-800 text-white px-4 py-3 rounded-xl"
+            >
+          <option value="newest">
+            Newest First
+          </option>
+
+          <option value="oldest">
+            Oldest First
+          </option>
+
+          <option value="highest">
+           Highest Amount
+          </option>
+
+          <option value="lowest">
+           Lowest Amount
+          </option>
+        </select>
+
+      </div>
+
           <h2 className="text-2xl font-bold text-white mb-4">
             Quotation History
           </h2>
@@ -767,7 +889,7 @@ return (
                     </td>
                   </tr>
                 ) : (
-                  quotations.map((quotation) => (
+                  filteredQuotations.map((quotation) => (
                     <tr
                       key={quotation.id}
                       className="border-t border-slate-700 text-white"
@@ -1088,10 +1210,9 @@ return (
     onClick={() => {
 
       const pdf = new jsPDF();
-      pdf.rect(140, 20, 55, 25);
 
       // Company Header
-      pdf.setFontSize(22);
+      pdf.setFontSize(20);
       pdf.setTextColor(44, 62, 80);
 
       pdf.text(
@@ -1121,24 +1242,35 @@ return (
         41
       );
 
-    // Invoice Box
-    pdf.setFillColor(75, 55, 120);
-    pdf.rect(140, 15, 55, 8, "F");
-    pdf.setTextColor(255, 255, 255);
-    pdf.text("QUOTATION", 157, 21);
-    pdf.setTextColor(0, 0, 0);
-    pdf.rect(140, 23, 55, 30);
+ // Invoice Box Header
+pdf.setFillColor(75, 55, 120);
+pdf.rect(140, 15, 55, 8, "F");
 
-    pdf.text(
-    `Invoice No: ${selectedQuotation.invoiceNo}`,
-    145,
-    35
+pdf.setTextColor(255, 255, 255);
+pdf.setFontSize(10);
+pdf.text("QUOTATION", 157, 21);
+
+pdf.setTextColor(0, 0, 0);
+
+// Main Box
+pdf.rect(140, 23, 55, 30);
+
+// Divider
+pdf.line(140, 38, 195, 38);
+
+// Invoice Number
+pdf.setFontSize(10);
+pdf.text(
+  `Invoice No: ${selectedQuotation.invoiceNo}`,
+  145,
+  32
 );
 
-    pdf.text(
-    `Date: ${selectedQuotation.date}`,
-    145,
-    45
+// Date
+pdf.text(
+  `Date: ${selectedQuotation.date}`,
+  145,
+  47
 );
 
       // Customer

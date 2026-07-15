@@ -1,178 +1,392 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import MainLayout from "../../components/layout/MainLayout";
-import CustomerToolbar from "./CustomerToolbar";
-import CustomerTable from "./CustomerTable";
-import CustomerModal from "./CustomerModal";
-import ConfirmModal from "../../components/ui/ConfirmModal";
+
+const emptyCustomer = {
+  name: "",
+  phone: "",
+  email: "",
+  address: "",
+};
 
 const Customers = () => {
-
-  // ===========================
-  // State
-  // ===========================
-
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-
-  const [selectedIndex, setSelectedIndex] = useState(null);
-
-  const [isEditing, setIsEditing] = useState(false);
-
+  const [customers, setCustomers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const [customer, setCustomer] = useState({
-    name: "",
-    phone: "",
-    email: "",
-    address: "",
-  });
+  const [showModal, setShowModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedCustomerId, setSelectedCustomerId] = useState(null);
 
-  const [customerList, setCustomerList] = useState([
-    {
-      name: "Rahul Sharma",
-      phone: "9876543210",
-      email: "rahul@gmail.com",
-      address: "Mumbai",
-    },
-    {
-      name: "Priya Patel",
-      phone: "9988776655",
-      email: "priya@gmail.com",
-      address: "Pune",
-    },
-  ]);
-  const handleSaveCustomer = () => {
-  if (
-    !customer.name ||
-    !customer.phone ||
-    !customer.email ||
-    !customer.address
-  ) {
-    alert("Please fill all fields.");
-    return;
-  }
+  const [customer, setCustomer] = useState(emptyCustomer);
 
-  setCustomerList([
-    ...customerList,
-    customer,
-  ]);
+  useEffect(() => {
+    const savedCustomers =
+      JSON.parse(
+        localStorage.getItem("customers")
+      ) || [];
 
-  setCustomer({
-    name: "",
-    phone: "",
-    email: "",
-    address: "",
-  });
+    setCustomers(savedCustomers);
+  }, []);
 
-  setIsModalOpen(false);
-};
+  const saveToStorage = (data) => {
+    localStorage.setItem(
+      "customers",
+      JSON.stringify(data)
+    );
+  };
 
-const openDeleteConfirmation = (index) => {
-  setSelectedIndex(index);
-  setIsConfirmOpen(true);
-};
+  const openAddModal = () => {
+    setCustomer(emptyCustomer);
+    setIsEditing(false);
+    setSelectedCustomerId(null);
+    setShowModal(true);
+  };
 
-const handleDeleteCustomer = () => {
-  const updatedCustomers = [...customerList];
+  const openEditModal = (customerData) => {
+    setCustomer(customerData);
+    setSelectedCustomerId(customerData.id);
+    setIsEditing(true);
+    setShowModal(true);
+  };
 
-  updatedCustomers.splice(selectedIndex, 1);
+  const handleSave = () => {
+    if (
+      !customer.name.trim() ||
+      !customer.phone.trim() ||
+      !customer.address.trim()
+    ) {
+      alert(
+        "Name, Phone and Address are required."
+      );
+      return;
+    }
 
-  setCustomerList(updatedCustomers);
+    if (!/^\d{10}$/.test(customer.phone)) {
+      alert(
+        "Phone number must be 10 digits."
+      );
+      return;
+    }
 
-  setIsConfirmOpen(false);
+    let updatedCustomers = [];
 
-  setSelectedIndex(null);
-};
+    if (isEditing) {
+      updatedCustomers = customers.map(
+        (item) =>
+          item.id === selectedCustomerId
+            ? customer
+            : item
+      );
+    } else {
+      updatedCustomers = [
+        ...customers,
+        {
+          ...customer,
+          id: Date.now(),
+        },
+      ];
+    }
 
-const handleEditCustomer = (index) => {
+    setCustomers(updatedCustomers);
+    saveToStorage(updatedCustomers);
 
-  setCustomer(customerList[index]);
+    setShowModal(false);
+    setCustomer(emptyCustomer);
+  };
 
-  setSelectedIndex(index);
+  const handleDelete = (id) => {
+    const confirmDelete = window.confirm(
+      "Delete this customer?"
+    );
 
-  setIsEditing(true);
+    if (!confirmDelete) return;
 
-  setIsModalOpen(true);
+    const updatedCustomers =
+      customers.filter(
+        (customer) =>
+          customer.id !== id
+      );
 
-};
+    setCustomers(updatedCustomers);
+    saveToStorage(updatedCustomers);
+  };
 
-const handleUpdateCustomer = () => {
+  const filteredCustomers =
+    customers.filter((customer) => {
+      const term =
+        searchTerm.toLowerCase();
 
-  const updatedCustomers = [...customerList];
-
-  updatedCustomers[selectedIndex] = customer;
-
-  setCustomerList(updatedCustomers);
-
-  setCustomer({
-    name: "",
-    phone: "",
-    email: "",
-    address: "",
-  });
-
-  setSelectedIndex(null);
-
-  setIsEditing(false);
-
-  setIsModalOpen(false);
-
-};
+      return (
+        customer.name
+          ?.toLowerCase()
+          .includes(term) ||
+        customer.phone?.includes(
+          searchTerm
+        ) ||
+        customer.email
+          ?.toLowerCase()
+          .includes(term) ||
+        customer.address
+          ?.toLowerCase()
+          .includes(term)
+      );
+    });
 
   return (
     <MainLayout>
+      <div className="max-w-7xl mx-auto">
 
-      <CustomerToolbar
-        onAddCustomer={() => {
+        <div className="flex justify-between items-center mb-8">
 
-        setCustomer({
-          name: "",
-          phone: "",
-          email: "",
-          address: "",
-         });
+          <div>
+            <h1 className="text-4xl font-bold text-white">
+              Customer Management
+            </h1>
 
-         setIsEditing(false);
+            <p className="text-slate-400 mt-2">
+              Manage all your customers
+            </p>
+          </div>
 
-         setIsModalOpen(true);
+          <button
+            onClick={openAddModal}
+            className="bg-amber-500 hover:bg-amber-600 text-black px-6 py-3 rounded-xl font-semibold"
+          >
+            + Add Customer
+          </button>
 
-         }}
-         searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-     />
+        </div>
 
-    <CustomerTable
-      customerList={customerList.filter((customer) =>
-      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.phone.includes(searchTerm) ||
-      customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.address.toLowerCase().includes(searchTerm.toLowerCase())
-     )}
-      onEdit={handleEditCustomer}
-      onDelete={openDeleteConfirmation}
-    />
+        <div className="bg-slate-900 rounded-2xl p-4 mb-6">
 
-      <CustomerModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSave={
-           isEditing
-           ? handleUpdateCustomer
-           : handleSaveCustomer
-         }
-        customer={customer}
-        setCustomer={setCustomer}
-      />
+          <input
+            type="text"
+            placeholder="Search customer..."
+            value={searchTerm}
+            onChange={(e) =>
+              setSearchTerm(
+                e.target.value
+              )
+            }
+            className="w-full bg-transparent outline-none text-white"
+          />
 
-      <ConfirmModal
-        isOpen={isConfirmOpen}
-        title="Delete Customer"
-        message="Are you sure you want to delete this customer?"
-        onCancel={() => setIsConfirmOpen(false)}
-        onConfirm={handleDeleteCustomer}
-      />
+        </div>
 
+        <div className="bg-slate-900 rounded-2xl overflow-hidden">
+
+          <table className="w-full">
+
+            <thead className="bg-slate-800">
+
+              <tr>
+
+                <th className="p-4 text-left text-white">
+                  Name
+                </th>
+
+                <th className="p-4 text-left text-white">
+                  Phone
+                </th>
+
+                <th className="p-4 text-left text-white">
+                  Email
+                </th>
+
+                <th className="p-4 text-left text-white">
+                  Address
+                </th>
+
+                <th className="p-4 text-center text-white">
+                  Actions
+                </th>
+
+              </tr>
+
+            </thead>
+
+            <tbody>
+
+              {filteredCustomers.length >
+              0 ? (
+                filteredCustomers.map(
+                  (customer) => (
+                    <tr
+                      key={customer.id}
+                      className="border-t border-slate-700 text-white"
+                    >
+
+                      <td className="p-4">
+                        {customer.name}
+                      </td>
+
+                      <td className="p-4">
+                        {customer.phone}
+                      </td>
+
+                      <td className="p-4">
+                        {customer.email}
+                      </td>
+
+                      <td className="p-4">
+                        {customer.address}
+                      </td>
+
+                      <td className="p-4 text-center">
+
+                        <button
+                          onClick={() =>
+                            openEditModal(
+                              customer
+                            )
+                          }
+                          className="bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded-lg mr-2"
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            handleDelete(
+                              customer.id
+                            )
+                          }
+                          className="bg-red-600 hover:bg-red-700 px-3 py-2 rounded-lg"
+                        >
+                          Delete
+                        </button>
+
+                      </td>
+
+                    </tr>
+                  )
+                )
+              ) : (
+                <tr>
+
+                  <td
+                    colSpan="5"
+                    className="text-center text-slate-400 p-8"
+                  >
+                    No customers found
+                  </td>
+
+                </tr>
+              )}
+
+            </tbody>
+
+          </table>
+
+        </div>
+
+        {showModal && (
+          <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+
+            <div className="bg-slate-900 rounded-2xl p-6 w-full max-w-lg">
+
+              <h2 className="text-2xl text-white font-bold mb-6">
+
+                {isEditing
+                  ? "Edit Customer"
+                  : "Add Customer"}
+
+              </h2>
+
+              <div className="space-y-4">
+
+                <input
+                  type="text"
+                  placeholder="Name"
+                  value={customer.name}
+                  onChange={(e) =>
+                    setCustomer({
+                      ...customer,
+                      name:
+                        e.target.value,
+                    })
+                  }
+                  className="w-full bg-slate-800 text-white p-3 rounded-xl"
+                />
+
+                <input
+                  type="text"
+                  placeholder="Phone"
+                  value={customer.phone}
+                  onChange={(e) =>
+                    setCustomer({
+                      ...customer,
+                      phone:
+                        e.target.value
+                          .replace(
+                            /\D/g,
+                            ""
+                          )
+                          .slice(
+                            0,
+                            10
+                          ),
+                    })
+                  }
+                  className="w-full bg-slate-800 text-white p-3 rounded-xl"
+                />
+
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={customer.email}
+                  onChange={(e) =>
+                    setCustomer({
+                      ...customer,
+                      email:
+                        e.target.value,
+                    })
+                  }
+                  className="w-full bg-slate-800 text-white p-3 rounded-xl"
+                />
+
+                <textarea
+                  placeholder="Address"
+                  value={customer.address}
+                  onChange={(e) =>
+                    setCustomer({
+                      ...customer,
+                      address:
+                        e.target.value,
+                    })
+                  }
+                  className="w-full bg-slate-800 text-white p-3 rounded-xl"
+                />
+
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+
+                <button
+                  onClick={() =>
+                    setShowModal(false)
+                  }
+                  className="bg-slate-700 px-4 py-2 rounded-lg text-white"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={handleSave}
+                  className="bg-amber-500 px-4 py-2 rounded-lg text-black font-semibold"
+                >
+                  {isEditing
+                    ? "Update"
+                    : "Save"}
+                </button>
+
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+      </div>
     </MainLayout>
   );
 };
