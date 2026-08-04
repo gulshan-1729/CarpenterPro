@@ -4,6 +4,7 @@ import Dashboard from "../pages/dashboard/Dashboard";
 import QuotationV2 from "../pages/quotations/QuotationV2";
 import Furniture from "../pages/furniture/Furniture";
 import Customers from "../pages/customers/Customers";
+import Reports from "../pages/reports/Reports";
 
 const AppRoutes = () => {
   return (
@@ -13,6 +14,8 @@ const AppRoutes = () => {
         <Route path="/" element={<Login />} />
 
         <Route path="/dashboard" element={<Dashboard />} />
+
+        <Route path="/reports" element={<Reports />} />
 
         <Route
            path="/quotations"

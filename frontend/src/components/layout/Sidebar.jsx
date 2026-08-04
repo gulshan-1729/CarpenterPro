@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Users,
@@ -12,6 +12,36 @@ const Sidebar = ({
   sidebarOpen,
   setSidebarOpen,
 }) => {
+  const location = useLocation();
+
+  const menuItems = [
+    {
+      name: "Dashboard",
+      path: "/dashboard",
+      icon: LayoutDashboard,
+    },
+    {
+      name: "Customers",
+      path: "/customers",
+      icon: Users,
+    },
+    {
+      name: "Furniture",
+      path: "/furniture",
+      icon: Sofa,
+    },
+    {
+      name: "Quotations",
+      path: "/quotations",
+      icon: FileText,
+    },
+    {
+      name: "Reports",
+      path: "/reports",
+      icon: Receipt,
+    },
+  ];
+
   return (
     <aside
       className={`
@@ -35,80 +65,42 @@ const Sidebar = ({
     >
       {/* Header */}
       <div className="p-6 flex justify-between items-center">
-
         <h1 className="text-2xl font-bold text-amber-400">
           CarpenterPro
         </h1>
 
         <button
           className="md:hidden text-white"
-          onClick={() =>
-            setSidebarOpen(false)
-          }
+          onClick={() => setSidebarOpen(false)}
         >
           <X size={24} />
         </button>
-
       </div>
 
       {/* Navigation */}
       <nav className="px-4 space-y-2">
+        {menuItems.map((item) => {
+          const Icon = item.icon;
 
-        <Link
-          to="/"
-          className="flex items-center gap-3 p-3 rounded-xl bg-slate-800 text-white"
-          onClick={() =>
-            setSidebarOpen(false)
-          }
-        >
-          <LayoutDashboard size={20} />
-          Dashboard
-        </Link>
+          const isActive =
+            location.pathname === item.path;
 
-        <Link
-          to="/customers"
-          className="flex items-center gap-3 p-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white"
-          onClick={() =>
-            setSidebarOpen(false)
-          }
-        >
-          <Users size={20} />
-          Customers
-        </Link>
-
-        <Link
-          to="/furniture"
-          className="flex items-center gap-3 p-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white"
-          onClick={() =>
-            setSidebarOpen(false)
-          }
-        >
-          <Sofa size={20} />
-          Furniture
-        </Link>
-
-        <Link
-          to="/quotations"
-          className="flex items-center gap-3 p-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white"
-          onClick={() =>
-            setSidebarOpen(false)
-          }
-        >
-          <FileText size={20} />
-          Quotations
-        </Link>
-
-        <Link
-          to="/invoices"
-          className="flex items-center gap-3 p-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white"
-          onClick={() =>
-            setSidebarOpen(false)
-          }
-        >
-          <Receipt size={20} />
-          Invoices
-        </Link>
-
+          return (
+            <Link
+              key={item.name}
+              to={item.path}
+              onClick={() => setSidebarOpen(false)}
+              className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-200 ${
+                isActive
+                  ? "bg-slate-800 text-white"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
+              }`}
+            >
+              <Icon size={20} />
+              {item.name}
+            </Link>
+          );
+        })}
       </nav>
     </aside>
   );

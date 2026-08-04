@@ -19,9 +19,9 @@ const Navbar = ({ setSidebarOpen }) => {
 
       </div>
 
-      <div className="text-slate-400 text-sm md:text-base">
-        Welcome, Admin
-      </div>
+       <span className="hidden sm:block">
+          Welcome, Admin
+      </span>
 
     </div>
   );

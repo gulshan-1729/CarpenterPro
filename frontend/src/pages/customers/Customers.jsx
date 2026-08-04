@@ -135,7 +135,7 @@ const Customers = () => {
     <MainLayout>
       <div className="max-w-7xl mx-auto">
 
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row gap-4 justify-between sm:items-center mb-8">
 
           <div>
             <h1 className="text-4xl font-bold text-white">
@@ -173,6 +173,8 @@ const Customers = () => {
         </div>
 
         <div className="bg-slate-900 rounded-2xl overflow-hidden">
+             <div className="overflow-x-auto">
+            
 
           <table className="w-full">
 
@@ -276,6 +278,8 @@ const Customers = () => {
             </tbody>
 
           </table>
+
+         </div>
 
         </div>
 

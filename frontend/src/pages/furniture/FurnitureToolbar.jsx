@@ -3,7 +3,7 @@ import { Plus } from "lucide-react";
 
 const FurnitureToolbar = ({ onAddFurniture }) => {
   return (
-    <div className="flex items-center justify-between mb-6">
+    <div className="flex flex-col sm:flex-row gap-4 justify-between sm:items-center">
       <div>
         <h1 className="text-3xl font-bold text-white">
           Furniture Management
@@ -14,12 +14,14 @@ const FurnitureToolbar = ({ onAddFurniture }) => {
         </p>
       </div>
 
-      <Button
-        onClick={onAddFurniture}
-        icon={<Plus size={18} />}
-      >
-        Add Furniture
+      <div className="w-full sm:w-auto">
+       <Button
+          onClick={onAddFurniture}
+          icon={<Plus size={18} />}
+       >
+          Add Furniture
       </Button>
+      </div>
     </div>
   );
 };
