@@ -4,6 +4,7 @@ import FurnitureToolbar from "./FurnitureToolbar";
 import FurnitureTable from "./FurnitureTable";
 import FurnitureModal from "../../components/ui/FurnitureModal";
 import ConfirmModal from "../../components/ui/ConfirmModal";
+import toast from "react-hot-toast";
 
 // ======================================
 // Default Furniture
@@ -116,7 +117,7 @@ const Furniture = () => {
     const rate = Number(furniture.rate);
 
     if (!name || !category || !rate) {
-      alert("Please fill all fields.");
+     toast.error("Please fill all fields.");
       return;
     }
 
@@ -127,7 +128,7 @@ const Furniture = () => {
     );
 
     if (duplicate) {
-      alert("Furniture already exists.");
+      toast.error("Furniture already exists.");
       return;
     }
 

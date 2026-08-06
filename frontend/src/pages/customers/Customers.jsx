@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import MainLayout from "../../components/layout/MainLayout";
+import toast from "react-hot-toast";
 
 const emptyCustomer = {
   name: "",
@@ -54,14 +55,14 @@ const Customers = () => {
       !customer.phone.trim() ||
       !customer.address.trim()
     ) {
-      alert(
+      toast.error(
         "Name, Phone and Address are required."
       );
       return;
     }
 
     if (!/^\d{10}$/.test(customer.phone)) {
-      alert(
+      toast.success(
         "Phone number must be 10 digits."
       );
       return;

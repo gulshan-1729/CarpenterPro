@@ -8,7 +8,7 @@ import {
   Tooltip,
 } from "recharts";
 
-const RevenueOverview = ({ quotations }) => {
+const RevenueOverview = ({ quotations = [] }) => {
   const monthlyRevenue = {};
 
   quotations.forEach((quotation) => {
@@ -16,26 +16,27 @@ const RevenueOverview = ({ quotations }) => {
 
     if (isNaN(date.getTime())) return;
 
-    const month = date.toLocaleString("default", {
+    const month = date.toLocaleDateString("en-IN", {
       month: "short",
+      year: "2-digit",
     });
 
     if (!monthlyRevenue[month]) {
-      monthlyRevenue[month] = 0;
+      monthlyRevenue[month] = {
+        month,
+        revenue: 0,
+      };
     }
 
-    monthlyRevenue[month] += Number(
+    monthlyRevenue[month].revenue += Number(
       quotation.grandTotal || 0
     );
   });
 
-  const chartData = Object.keys(monthlyRevenue).map((month) => ({
-    month,
-    revenue: monthlyRevenue[month],
-  }));
+  const chartData = Object.values(monthlyRevenue);
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-10">
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 h-full">
 
       <div className="mb-6">
 
@@ -51,22 +52,30 @@ const RevenueOverview = ({ quotations }) => {
 
       {chartData.length === 0 ? (
 
-        <div className="h-[350px] flex justify-center items-center text-slate-400">
-          No revenue data available.
+        <div className="h-[340px] flex items-center justify-center text-slate-400">
+          No revenue available.
         </div>
 
       ) : (
 
-        <div className="h-[350px]">
+        <div className="h-[340px]">
 
           <ResponsiveContainer width="100%" height="100%">
 
-            <AreaChart data={chartData}>
+            <AreaChart
+              data={chartData}
+              margin={{
+                top: 10,
+                right: 20,
+                left: 0,
+                bottom: 5,
+              }}
+            >
 
               <defs>
 
                 <linearGradient
-                  id="colorRevenue"
+                  id="revenueGradient"
                   x1="0"
                   y1="0"
                   x2="0"
@@ -75,7 +84,7 @@ const RevenueOverview = ({ quotations }) => {
                   <stop
                     offset="5%"
                     stopColor="#f59e0b"
-                    stopOpacity={0.8}
+                    stopOpacity={0.75}
                   />
 
                   <stop
@@ -96,31 +105,49 @@ const RevenueOverview = ({ quotations }) => {
               <XAxis
                 dataKey="month"
                 stroke="#94a3b8"
+                tick={{
+                  fill: "#cbd5e1",
+                  fontSize: 13,
+                }}
               />
 
               <YAxis
                 stroke="#94a3b8"
+                tick={{
+                  fill: "#cbd5e1",
+                }}
               />
 
               <Tooltip
-                contentStyle={{
-                  background: "#0f172a",
-                  border: "1px solid #334155",
-                  borderRadius: "10px",
-                  color: "#fff",
-                }}
                 formatter={(value) => [
-                  `₹${Number(value).toLocaleString()}`,
+                  `Rs. ${Number(value).toLocaleString("en-IN", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}`,
                   "Revenue",
                 ]}
+                contentStyle={{
+                  backgroundColor: "#0f172a",
+                  border: "1px solid #334155",
+                  borderRadius: "12px",
+                  color: "#fff",
+                }}
+                labelStyle={{
+                  color: "#fff",
+                  fontWeight: "bold",
+                }}
+                itemStyle={{
+                  color: "#fff",
+                }}
               />
 
               <Area
                 type="monotone"
                 dataKey="revenue"
                 stroke="#f59e0b"
-                fill="url(#colorRevenue)"
                 strokeWidth={3}
+                fill="url(#revenueGradient)"
+                animationDuration={1200}
               />
 
             </AreaChart>

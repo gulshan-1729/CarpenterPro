@@ -29,18 +29,54 @@ const QuotationV2 = () => {
   const [gst, setGst] = useState(0);
   const [discount, setDiscount] = useState(0);
 
+  const numberValue = (value) => Number(value || 0);
+
+const round = (value) => Number(Number(value || 0).toFixed(2));
+
+const recalculateItem = (item) => {
+  let updated = { ...item };
+
+  const length = numberValue(updated.length);
+  const width = numberValue(updated.width);
+
+  // Auto-calculate area only if user hasn't entered one
+  if (updated.area === "" || updated.area === null) {
+    updated.area = round(length * width);
+  }
+
+  // Auto-calculate amount
+  if (updated.amount === "" || updated.amount === null) {
+    updated.amount = round(
+      numberValue(updated.area) *
+      numberValue(updated.rate) *
+      numberValue(updated.qty)
+    );
+  }
+
+  return updated;
+};
+
   // ==========================================
   // ITEMS
   // ==========================================
 
-  const createEmptyItem = () => ({
-    id: Date.now() + Math.random(),
-    furnitureName: "",
-    length: "",
-    width: "",
-    rate: "",
-    qty: 1,
-  });
+ const createEmptyItem = () => ({
+  id: Date.now() + Math.random(),
+
+  furnitureName: "",
+
+  length: "",
+
+  width: "",
+
+  area: "",
+
+  rate: "",
+
+  qty: 1,
+
+  amount: "",
+});
 
   const [items, setItems] = useState([createEmptyItem()]);
 
@@ -88,6 +124,30 @@ const QuotationV2 = () => {
     setItems((prev) => [...prev, createEmptyItem()]);
   };
 
+  const insertItemAfter = (id) => {
+
+  setItems((prev) => {
+
+    const index = prev.findIndex(
+      (item) => item.id === id
+    );
+
+    if (index === -1) return prev;
+
+    const updated = [...prev];
+
+    updated.splice(
+      index + 1,
+      0,
+      createEmptyItem()
+    );
+
+    return updated;
+
+  });
+
+};
+
   const removeItem = (id) => {
     if (items.length === 1) {
       alert("At least one furniture item is required.");
@@ -99,48 +159,130 @@ const QuotationV2 = () => {
     );
   };
 
-  const handleItemChange = (
-    id,
-    field,
-    value
-  ) => {
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              [field]: value,
-            }
-          : item
-      )
-    );
-  };
+  const handleItemChange = (id, field, value) => {
+
+  setItems((prev) =>
+    prev.map((item) => {
+
+      if (item.id !== id) return item;
+
+      let updated = {
+        ...item,
+        [field]: value,
+      };
+
+      // -------------------------
+      // Length / Width Changed
+      // -------------------------
+
+      if (field === "length" || field === "width") {
+
+        updated.length = numberValue(updated.length);
+        updated.width = numberValue(updated.width);
+
+        updated.area = round(
+          updated.length * updated.width
+        );
+
+        updated.amount = round(
+          updated.area *
+          numberValue(updated.rate) *
+          numberValue(updated.qty)
+        );
+
+        return updated;
+      }
+
+      // -------------------------
+      // Area Edited
+      // -------------------------
+
+      if (field === "area") {
+
+        updated.area = round(value);
+
+        updated.amount = round(
+          numberValue(updated.area) *
+          numberValue(updated.rate) *
+          numberValue(updated.qty)
+        );
+
+        return updated;
+      }
+
+      // -------------------------
+      // Rate Changed
+      // -------------------------
+
+      if (field === "rate") {
+
+        updated.rate = numberValue(value);
+
+        updated.amount = round(
+          numberValue(updated.area) *
+          updated.rate *
+          numberValue(updated.qty)
+        );
+
+        return updated;
+      }
+
+      // -------------------------
+      // Qty Changed
+      // -------------------------
+
+      if (field === "qty") {
+
+        updated.qty = numberValue(value);
+
+        updated.amount = round(
+          numberValue(updated.area) *
+          numberValue(updated.rate) *
+          updated.qty
+        );
+
+        return updated;
+      }
+
+      // -------------------------
+      // Amount Edited
+      // -------------------------
+
+      if (field === "amount") {
+
+        updated.amount = round(value);
+
+        return updated;
+      }
+
+      return updated;
+
+    })
+  );
+
+};
 
   // ==========================================
   // CALCULATIONS
   // ==========================================
 
-  const subtotal = items.reduce((sum, item) => {
-    const area =
-      Number(item.length || 0) *
-      Number(item.width || 0);
+const subtotal = items.reduce(
+  (sum, item) => sum + numberValue(item.amount),
+  0
+);
 
-    const amount =
-      area *
-      Number(item.rate || 0) *
-      Number(item.qty || 0);
+const totalArea = items.reduce(
+  (sum, item) => sum + numberValue(item.area),
+  0
+);
 
-    return sum + amount;
-  }, 0);
+const gstAmount = subtotal * (gst / 100);
 
-  const gstAmount =
-    (subtotal * Number(gst || 0)) / 100;
+const discountAmount =
+  subtotal * (discount / 100);
 
-  const discountAmount =
-    (subtotal * Number(discount || 0)) / 100;
-
-  const grandTotal =
-    subtotal + gstAmount - discountAmount;
+const grandTotal =
+  subtotal + gstAmount - discountAmount;
 
   // ==========================================
   // RESET FORM
@@ -160,6 +302,14 @@ const QuotationV2 = () => {
 
     setItems([createEmptyItem()]);
   };
+
+  const cancelEdit = () => {
+
+  setEditingId(null);
+
+  resetForm();
+
+};
 
   // ==========================================
   // SAVE QUOTATION
@@ -188,14 +338,16 @@ const QuotationV2 = () => {
       return;
     }
 
-    const invalidItem = items.find(
-      (item) =>
-        !item.furnitureName ||
-        Number(item.length) <= 0 ||
-        Number(item.width) <= 0 ||
-        Number(item.rate) <= 0 ||
-        Number(item.qty) <= 0
-    );
+   const invalidItem = items.find(
+   (item) =>
+    !item.furnitureName ||
+    Number(item.length) <= 0 ||
+    Number(item.width) <= 0 ||
+    Number(item.area) <= 0 ||
+    Number(item.rate) <= 0 ||
+    Number(item.qty) <= 0 ||
+    Number(item.amount) <= 0
+   );
 
     const currentYear = new Date().getFullYear();
 
@@ -204,14 +356,14 @@ const QuotationV2 = () => {
 
     if (!parts || parts.length !== 3) return max;
 
- const number = parseInt(parts[2], 10);
+    const number = Number(parts[2]);
 
-return !isNaN(number) && number > max ? number : max;
-}, 0);
+   return number > max ? number : max;
+   }, 0);
 
-const nextInvoiceNo = `CP-${currentYear}-${String(
-  maxInvoice + 1
-).padStart(4, "0")}`;
+   const nextInvoiceNo = `CP-${currentYear}-${String(
+   maxInvoice + 1
+   ).padStart(4, "0")}`;
 
     if (invalidItem) {
       alert(
@@ -220,29 +372,28 @@ const nextInvoiceNo = `CP-${currentYear}-${String(
       return;
     }
 
-    const processedItems = items.map((item) => {
-      const area =
-        Number(item.length || 0) *
-        Number(item.width || 0);
+   const processedItems = items.map((item) => ({
+   ...item,
 
-      const total =
-        area *
-        Number(item.rate || 0) *
-        Number(item.qty || 0);
+   length: numberValue(item.length),
 
-      return {
-        ...item,
-        area,
-        total,
-      };
-    });
+   width: numberValue(item.width),
+
+   area: numberValue(item.area),
+
+   qty: numberValue(item.qty),
+
+   rate: numberValue(item.rate),
+
+   amount: numberValue(item.amount),
+   }));
 
     const quotation = {
       id: editingId || Date.now(),
 
      invoiceNo: editingId
-  ? quotations.find((q) => q.id === editingId)?.invoiceNo
-  : nextInvoiceNo,
+     ? quotations.find((q) => q.id === editingId)?.invoiceNo
+     : nextInvoiceNo,
 
       customerName,
       phone,
@@ -258,14 +409,20 @@ const nextInvoiceNo = `CP-${currentYear}-${String(
       discountAmount,
       grandTotal,
 
-      date: new Date().toLocaleDateString(),
-    };
+      date: editingId
+      ? quotations.find((q) => q.id === editingId)?.date
+      : new Date().toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+     }),
+     };
 
-    const customerExists = customers.find(
+     const customerExists = customers.find(
       (c) => c.phone === phone
-    );
+     );
 
-    if (!customerExists) {
+     if (!customerExists) {
       const updatedCustomers = [
         ...customers,
         {
@@ -282,9 +439,9 @@ const nextInvoiceNo = `CP-${currentYear}-${String(
         "customers",
         JSON.stringify(updatedCustomers)
       );
-    }
+     }
 
-    let updatedQuotations;
+     let updatedQuotations;
 
     if (editingId) {
       updatedQuotations = quotations.map((q) =>
@@ -307,7 +464,6 @@ const nextInvoiceNo = `CP-${currentYear}-${String(
       "quotationsV2",
       JSON.stringify(updatedQuotations)
     );
-
     resetForm();
   };
 
@@ -322,7 +478,28 @@ const nextInvoiceNo = `CP-${currentYear}-${String(
     setPhone(quotation.phone);
     setAddress(quotation.address);
 
-    setItems(quotation.items);
+   setItems(
+  quotation.items.map((item) => ({
+    ...item,
+
+    area:
+      item.area ??
+      round(
+        numberValue(item.length) *
+        numberValue(item.width)
+      ),
+
+    amount:
+      item.amount ??
+      round(
+        (item.area ??
+          numberValue(item.length) *
+            numberValue(item.width)) *
+          numberValue(item.rate) *
+          numberValue(item.qty)
+      ),
+  }))
+);
 
     setGst(quotation.gst);
     setDiscount(quotation.discount);
@@ -530,15 +707,6 @@ const nextInvoiceNo = `CP-${currentYear}-${String(
 
                   {items.map((item) => {
 
-                    const area =
-                      Number(item.length || 0) *
-                      Number(item.width || 0);
-
-                    const amount =
-                      area *
-                      Number(item.rate || 0) *
-                      Number(item.qty || 0);
-
                     return (
 
                       <tr
@@ -636,28 +804,61 @@ const nextInvoiceNo = `CP-${currentYear}-${String(
 
                         </td>
 
-                        <td className="p-3 text-green-400 font-semibold">
-                          {area}
+                      <td className="p-3">
+
+                        <input
+                         type="number"
+                         value={item.area}
+                         placeholder="Area"
+                         onChange={(e) =>
+                         handleItemChange(
+                         item.id,
+                         "area",
+                         e.target.value
+                        )
+                         }
+                           className="w-full p-2 rounded-lg bg-slate-900 text-green-400 font-semibold"
+                        />
+
                         </td>
 
-                        <td className="p-3 text-amber-400 font-semibold">
-                          ₹
-                          {amount.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </td>
+                      <td className="p-3">
+
+                        <input
+                        type="number"
+                        value={item.amount}
+                        placeholder="Amount"
+                        onChange={(e) =>
+                        handleItemChange(
+                        item.id,
+                        "amount",
+                        e.target.value
+                        )
+                        }
+                       className="w-full p-2 rounded-lg bg-slate-900 text-amber-400 font-semibold"
+                      />
+
+                      </td>
 
                         <td className="p-3">
 
+                         <div className="flex gap-2">
+
                           <button
-                            onClick={() =>
-                              removeItem(item.id)
-                            }
-                            className="bg-red-600 hover:bg-red-700 px-3 py-2 rounded-lg"
+                          onClick={() => insertItemAfter(item.id)}
+                          className="bg-green-600 hover:bg-green-700 px-3 py-2 rounded-lg"
                           >
-                            Delete
+                             +
                           </button>
+
+                          <button
+                           onClick={() => removeItem(item.id)}
+                           className="bg-red-600 hover:bg-red-700 px-3 py-2 rounded-lg"
+                           >
+                           Delete
+                          </button>
+
+                          </div>
 
                         </td>
 
@@ -784,21 +985,39 @@ const nextInvoiceNo = `CP-${currentYear}-${String(
 
           <div className="flex gap-4 mt-8">
 
-            <button
-              onClick={saveQuotation}
-              className="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-xl font-semibold text-white"
-            >
-              {editingId
-                ? "Update Quotation"
-                : "Save Quotation"}
-            </button>
+           {editingId ? (
+  <>
+    <button
+      onClick={saveQuotation}
+      className="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-xl font-semibold text-white"
+    >
+      Update Quotation
+    </button>
 
-            <button
-              onClick={resetForm}
-              className="bg-slate-700 hover:bg-slate-600 px-6 py-3 rounded-xl text-white"
-            >
-              Reset
-            </button>
+    <button
+      onClick={cancelEdit}
+      className="bg-red-600 hover:bg-red-700 px-6 py-3 rounded-xl text-white"
+    >
+      Cancel
+    </button>
+  </>
+) : (
+  <>
+    <button
+      onClick={saveQuotation}
+      className="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-xl font-semibold text-white"
+    >
+      Save Quotation
+    </button>
+
+    <button
+      onClick={resetForm}
+      className="bg-slate-700 hover:bg-slate-600 px-6 py-3 rounded-xl text-white"
+    >
+      Reset
+    </button>
+  </>
+)}
 
           </div>
 
@@ -1128,92 +1347,76 @@ const nextInvoiceNo = `CP-${currentYear}-${String(
 
                 <thead>
 
-                  <tr className="bg-slate-200">
+                <tr className="bg-slate-200">
 
-                    <th className="border p-2">
-                      Furniture
-                    </th>
+                <th className="border p-2">
+                 Furniture
+                 </th>
 
-                    <th className="border p-2">
-                      Length
-                    </th>
+                <th className="border p-2">
+                   L × W
+                </th>
 
-                    <th className="border p-2">
-                      Width
-                    </th>
+                <th className="border p-2">
+                 Area
+                </th>
 
-                    <th className="border p-2">
-                      Rate
-                    </th>
+                <th className="border p-2">
+                Qty
+                </th>
 
-                    <th className="border p-2">
-                      Qty
-                    </th>
+                <th className="border p-2">
+                Rate
+                </th>
 
-                    <th className="border p-2">
-                      Amount
-                    </th>
+                <th className="border p-2">
+                 Amount
+               </th>
 
-                  </tr>
+                </tr>
 
                 </thead>
 
                 <tbody>
 
-                  {selectedQuotation.items.map(
-                    (item) => {
+  {selectedQuotation.items.map((item) => (
 
-                      const area =
-                        Number(item.length) *
-                        Number(item.width);
+    <tr key={item.id}>
 
-                      const amount =
-                        area *
-                        Number(item.rate) *
-                        Number(item.qty);
+      <td className="border p-2">
+        {item.furnitureName}
+      </td>
 
-                      return (
+      <td className="border p-2">
+        {item.length} × {item.width}
+      </td>
 
-                        <tr key={item.id}>
+      <td className="border p-2">
+        {Number(item.area).toFixed(2)}
+      </td>
 
-                          <td className="border p-2">
-                            {item.furnitureName}
-                          </td>
+      <td className="border p-2">
+        {item.qty}
+      </td>
 
-                          <td className="border p-2">
-                            {item.length}
-                          </td>
+      <td className="border p-2">
+        ₹
+        {Number(item.rate).toLocaleString("en-IN")}
+      </td>
 
-                          <td className="border p-2">
-                            {item.width}
-                          </td>
+      <td className="border p-2">
+        ₹
+        {Number(item.amount).toLocaleString("en-IN", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}
+      </td>
 
-                          <td className="border p-2">
-                            {item.rate}
-                          </td>
+    </tr>
 
-                          <td className="border p-2">
-                            {item.qty}
-                          </td>
+  ))}
 
-                          <td className="border p-2">
-                            ₹
-                            {amount.toLocaleString(
-                              undefined,
-                              {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              }
-                            )}
-                          </td>
-
-                        </tr>
-
-                      );
-                    }
-                  )}
-
-                </tbody>
+</tbody>
 
               </table>
 
@@ -1419,39 +1622,35 @@ const nextInvoiceNo = `CP-${currentYear}-${String(
                       76
                     );
 
-                    const tableRows =
-                      selectedQuotation.items.map(
-                        (item) => {
+                    const tableRows = selectedQuotation.items.map((item) => [
 
-                          const area =
-                            Number(item.length) *
-                            Number(item.width);
+  item.furnitureName,
 
-                          const amount =
-                            area *
-                            Number(item.rate) *
-                            Number(item.qty);
+  `${item.length} × ${item.width}`,
 
-                          return [
-                            item.furnitureName,
-                            area,
-                            item.qty,
-                            item.rate,
-                            amount.toFixed(2),
-                          ];
-                        }
-                      );
-                                      autoTable(pdf, {
+  Number(item.area).toFixed(2),
+
+  item.qty,
+
+  `Rs. ${Number(item.rate).toLocaleString("en-IN")}`,
+
+ `Rs. ${Number(item.amount).toLocaleString("en-IN", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})}`,
+
+]);
+                      autoTable(pdf, {
                       startY: 95,
 
-                      head: [[
-                        "Furniture",
-                        "Area",
-                        "Qty",
-                        "Rate",
-                        "Amount",
-                      ]],
-
+                   head: [[
+  "Furniture",
+  "L × W",
+  "Area",
+  "Qty",
+  "Rate",
+  "Amount",
+]],
                       body: tableRows,
 
                       theme: "striped",

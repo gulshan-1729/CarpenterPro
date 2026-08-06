@@ -5,6 +5,7 @@ import {
   Sofa,
   FileText,
   Receipt,
+  Settings,
   X,
 } from "lucide-react";
 
@@ -39,6 +40,11 @@ const Sidebar = ({
       name: "Reports",
       path: "/reports",
       icon: Receipt,
+    },
+    {
+      name: "Settings",
+      path: "/settings",
+      icon: Settings,
     },
   ];
 
@@ -97,7 +103,7 @@ const Sidebar = ({
               }`}
             >
               <Icon size={20} />
-              {item.name}
+              <span>{item.name}</span>
             </Link>
           );
         })}
