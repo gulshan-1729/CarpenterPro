@@ -15,6 +15,19 @@ const QuotationV2 = () => {
   const [customers, setCustomers] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
 
+  //Company Settings
+  const [company, setCompany] = useState(() => {
+  try {
+    const saved = localStorage.getItem("companyProfile");
+
+    return saved
+      ? JSON.parse(saved)
+      : {};
+  } catch {
+    return {};
+  }
+});
+
   // ==========================================
   // SEARCH / SORT
   // ==========================================
@@ -31,9 +44,9 @@ const QuotationV2 = () => {
 
   const numberValue = (value) => Number(value || 0);
 
-const round = (value) => Number(Number(value || 0).toFixed(2));
+ const round = (value) => Number(Number(value || 0).toFixed(2));
 
-const recalculateItem = (item) => {
+  const recalculateItem = (item) => {
   let updated = { ...item };
 
   const length = numberValue(updated.length);
@@ -115,6 +128,39 @@ const recalculateItem = (item) => {
 
     setCustomers(savedCustomers);
   }, []);
+
+  useEffect(() => {
+  const loadCompany = () => {
+    try {
+      const saved = localStorage.getItem(
+        "companyProfile"
+      );
+
+      if (saved) {
+        setCompany(JSON.parse(saved));
+      }
+    } catch (error) {
+      console.error(
+        "Failed to load company profile:",
+        error
+      );
+    }
+  };
+
+  loadCompany();
+
+  window.addEventListener(
+    "companyProfileUpdated",
+    loadCompany
+  );
+
+  return () => {
+    window.removeEventListener(
+      "companyProfileUpdated",
+      loadCompany
+    );
+  };
+}, []);
 
   // ==========================================
   // ITEM FUNCTIONS
@@ -1277,9 +1323,17 @@ const grandTotal =
 
               <div className="flex justify-between items-center mb-6">
 
+              <div>
                 <h2 className="text-3xl font-bold">
-                  Invoice
+                   {company.companyName || "Invoice"}
                 </h2>
+
+                  {company.ownerName && (
+                  <p className="text-sm text-slate-600 mt-1">
+                  {company.ownerName}
+                  </p>
+                 )}
+                </div>
 
                 <button
                   onClick={() =>
@@ -1291,6 +1345,52 @@ const grandTotal =
                 </button>
 
               </div>
+
+              <div className="mb-6 border-b pb-4">
+
+  <div className="flex items-start gap-4">
+
+    {company.logo && (
+      <img
+        src={company.logo}
+        alt="Company Logo"
+        className="w-24 h-20 object-contain"
+      />
+    )}
+
+    <div>
+      {company.phone && (
+        <p className="text-sm">
+          <strong>Phone:</strong>{" "}
+          {company.phone}
+        </p>
+      )}
+
+      {company.email && (
+        <p className="text-sm">
+          <strong>Email:</strong>{" "}
+          {company.email}
+        </p>
+      )}
+
+      {company.gst && (
+        <p className="text-sm">
+          <strong>GST:</strong>{" "}
+          {company.gst}
+        </p>
+      )}
+
+      {company.address && (
+        <p className="text-sm">
+          <strong>Address:</strong>{" "}
+          {company.address}
+        </p>
+      )}
+    </div>
+
+  </div>
+
+</div>
 
               <div className="grid md:grid-cols-2 gap-4 mb-6">
 
@@ -1343,7 +1443,7 @@ const grandTotal =
 
               </div>
 
-                            <table className="w-full border mb-6">
+                <table className="w-full border mb-6">
 
                 <thead>
 
@@ -1490,189 +1590,291 @@ const grandTotal =
               <div className="mt-8">
 
                 <button
-                  onClick={() => {
+                 onClick={() => {
 
-                    const pdf = new jsPDF();
+  const pdf = new jsPDF();
 
-                    // Company Header
-                    pdf.setFontSize(20);
-                    pdf.setTextColor(44, 62, 80);
+  // =====================================
+// COMPANY LOGO
+// =====================================
 
-                    pdf.text(
-                      "SHARMA INTERIORS & FURNITURE",
-                      14,
-                      20
-                    );
+if (company.logo) {
+  try {
+    pdf.addImage(
+      company.logo,
+      "PNG",
+      14,
+      8,
+      25,
+      25
+    );
+  } catch (error) {
+    console.error(
+      "Unable to add company logo:",
+      error
+    );
+  }
+}
 
-                    pdf.setFontSize(9);
+  // =====================================
+  // COMPANY HEADER
+  // =====================================
 
-                    pdf.text(
-                      "Interior Design | Modular Furniture | Custom Woodwork",
-                      14,
-                      27
-                    );
+  pdf.setFontSize(20);
+  pdf.setTextColor(44, 62, 80);
 
-                    pdf.setFontSize(10);
+  pdf.text(
+    company.companyName || "Company Name",
+    45,
+    20
+  );
 
-                    pdf.text(
-                      "Phone: 9960040174",
-                      14,
-                      35
-                    );
+  pdf.setFontSize(9);
+  pdf.setTextColor(80, 80, 80);
 
-                    pdf.text(
-                      "Email: ayodhyasharma06@gmail.com",
-                      14,
-                      41
-                    );
+  if (company.ownerName) {
+    pdf.text(
+      `Owner: ${company.ownerName}`,
+      45,
+      27
+    );
+  }
 
-                    // Invoice Header Box
-                    pdf.setFillColor(
-                      75,
-                      55,
-                      120
-                    );
+  pdf.setFontSize(10);
 
-                    pdf.rect(
-                      140,
-                      15,
-                      55,
-                      8,
-                      "F"
-                    );
+  if (company.phone) {
+    pdf.text(
+      `Phone: ${company.phone}`,
+      45,
+      35
+    );
+  }
 
-                    pdf.setTextColor(
-                      255,
-                      255,
-                      255
-                    );
+  if (company.email) {
+    pdf.text(
+      `Email: ${company.email}`,
+      45,
+      41
+    );
+  }
 
-                    pdf.setFontSize(10);
+  if (company.gst) {
+    pdf.text(
+      `GST: ${company.gst}`,
+      45,
+      47
+    );
+  }
 
-                    pdf.text(
-                      "QUOTATION",
-                      157,
-                      21
-                    );
+  if (company.address) {
 
-                    pdf.setTextColor(
-                      0,
-                      0,
-                      0
-                    );
+    const addressLines =
+      pdf.splitTextToSize(
+        `Address: ${company.address}`,
+        115
+      );
 
-                    pdf.rect(
-                      140,
-                      23,
-                      55,
-                      30
-                    );
+    pdf.text(
+      addressLines,
+      45,
+      53
+    );
+  }
 
-                    pdf.line(
-                      140,
-                      38,
-                      195,
-                      38
-                    );
 
-                    pdf.text(
-                      `Invoice No: ${selectedQuotation.invoiceNo}`,
-                      145,
-                      32
-                    );
+  // =====================================
+  // INVOICE HEADER BOX
+  // =====================================
 
-                    pdf.text(
-                      `Date: ${selectedQuotation.date}`,
-                      145,
-                      47
-                    );
+  pdf.setFillColor(
+    75,
+    55,
+    120
+  );
 
-                    pdf.rect(
-                      14,
-                      45,
-                      90,
-                      40
-                    );
+  pdf.rect(
+    140,
+    15,
+    55,
+    8,
+    "F"
+  );
 
-                    pdf.setFontSize(12);
+  pdf.setTextColor(
+    255,
+    255,
+    255
+  );
 
-                    pdf.text(
-                      "Customer Details",
-                      18,
-                      53
-                    );
+  pdf.setFontSize(10);
 
-                    pdf.setFontSize(10);
+  pdf.text(
+    "QUOTATION",
+    157,
+    21
+  );
 
-                    pdf.text(
-                      `Name: ${selectedQuotation.customerName}`,
-                      18,
-                      62
-                    );
+  pdf.setTextColor(
+    0,
+    0,
+    0
+  );
 
-                    pdf.text(
-                      `Phone: ${selectedQuotation.phone}`,
-                      18,
-                      69
-                    );
+  pdf.rect(
+    140,
+    23,
+    55,
+    30
+  );
 
-                    pdf.text(
-                      `Address: ${selectedQuotation.address}`,
-                      18,
-                      76
-                    );
+  pdf.line(
+    140,
+    38,
+    195,
+    38
+  );
 
-                    const tableRows = selectedQuotation.items.map((item) => [
+  pdf.text(
+    `Invoice No: ${selectedQuotation.invoiceNo}`,
+    145,
+    32
+  );
 
-  item.furnitureName,
+  pdf.text(
+    `Date: ${selectedQuotation.date}`,
+    145,
+    47
+  );
 
-  `${item.length} × ${item.width}`,
 
-  Number(item.area).toFixed(2),
+  // =====================================
+  // CUSTOMER DETAILS
+  // =====================================
 
-  item.qty,
+  pdf.rect(
+    14,
+    60,
+    90,
+    40
+  );
 
-  `Rs. ${Number(item.rate).toLocaleString("en-IN")}`,
+  pdf.setFontSize(12);
 
- `Rs. ${Number(item.amount).toLocaleString("en-IN", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-})}`,
+  pdf.text(
+    "Customer Details",
+    18,
+    68
+  );
 
-]);
-                      autoTable(pdf, {
-                      startY: 95,
+  pdf.setFontSize(10);
 
-                   head: [[
-  "Furniture",
-  "L × W",
-  "Area",
-  "Qty",
-  "Rate",
-  "Amount",
-]],
-                      body: tableRows,
+  pdf.text(
+    `Name: ${selectedQuotation.customerName}`,
+    18,
+    77
+  );
 
-                      theme: "striped",
+  pdf.text(
+    `Phone: ${selectedQuotation.phone}`,
+    18,
+    84
+  );
 
-                      styles: {
-                        fontSize: 10,
-                        cellPadding: 3,
-                      },
+  const customerAddressLines =
+    pdf.splitTextToSize(
+      `Address: ${selectedQuotation.address}`,
+      80
+    );
 
-                      headStyles: {
-                        fillColor: [75, 55, 120],
-                        textColor: 255,
-                        fontStyle: "bold",
-                      },
+  pdf.text(
+    customerAddressLines,
+    18,
+    91
+  );
 
-                      alternateRowStyles: {
-                        fillColor: [245, 245, 245],
-                      },
-                    });
 
-                    const finalY =
-                      (pdf.lastAutoTable?.finalY || 120) + 10;
+  // =====================================
+  // QUOTATION TABLE
+  // =====================================
+
+  const tableRows =
+    selectedQuotation.items.map(
+      (item) => [
+
+        item.furnitureName,
+
+        `${item.length} × ${item.width}`,
+
+        Number(item.area).toFixed(2),
+
+        Number(item.qty),
+
+        `Rs. ${Number(
+          item.rate
+        ).toLocaleString("en-IN")}`,
+
+        `Rs. ${Number(
+          item.amount
+        ).toLocaleString("en-IN", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`,
+
+      ]
+    );
+
+
+  autoTable(pdf, {
+
+    startY: 110,
+
+    head: [[
+      "Furniture",
+      "L × W",
+      "Area",
+      "Qty",
+      "Rate",
+      "Amount",
+    ]],
+
+    body: tableRows,
+
+    theme: "striped",
+
+    styles: {
+      fontSize: 10,
+      cellPadding: 3,
+    },
+
+    headStyles: {
+      fillColor: [
+        75,
+        55,
+        120,
+      ],
+
+      textColor: 255,
+
+      fontStyle: "bold",
+    },
+
+    alternateRowStyles: {
+      fillColor: [
+        245,
+        245,
+        245,
+      ],
+    },
+
+  });
+
+
+  // =====================================
+  // FINAL TABLE POSITION
+  // =====================================
+
+  const finalY =
+    (pdf.lastAutoTable?.finalY || 120) + 10;
 
                     // ==========================================
                     // TOTALS BOX
@@ -1761,6 +1963,28 @@ const grandTotal =
                     const signY =
                       (pdf.lastAutoTable?.finalY ||
                         finalY) + 30;
+
+// =====================================
+// COMPANY SIGNATURE
+// =====================================
+
+if (company.signature) {
+  try {
+    pdf.addImage(
+      company.signature,
+      "PNG",
+      160,
+      finalY + 45,
+      35,
+      20
+    );
+  } catch (error) {
+    console.error(
+      "Unable to add company signature:",
+      error
+    );
+  }
+}
 
                     pdf.line(
                       130,
