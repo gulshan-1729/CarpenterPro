@@ -2,55 +2,62 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Hammer,
+  User,
   Mail,
+  Phone,
   Lock,
   Eye,
   EyeOff,
   ArrowRight,
   CheckCircle2,
+  ShieldCheck,
+  Ruler,
   Sofa,
   BedDouble,
-  Ruler,
-  ShieldCheck,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const furnitureSlides = [
   {
-    title: "Design Beautiful Spaces",
+    title: "Build Your Business",
     description:
-      "Create professional furniture quotations quickly and easily.",
+      "Create professional quotations and manage your furniture projects.",
     icon: Sofa,
   },
   {
-    title: "Quote With Confidence",
+    title: "Work Smarter",
     description:
-      "Calculate area, rates, quantities and final amounts with ease.",
+      "Save time with automatic calculations and organized customer records.",
     icon: Ruler,
   },
   {
-    title: "Manage Every Project",
+    title: "Everything In One Place",
     description:
-      "Keep your customers, furniture and quotations organized.",
+      "Manage customers, furniture, quotations and reports from one dashboard.",
     icon: BedDouble,
   },
 ];
 
-const Login = () => {
+const Signup = () => {
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] =
+    useState(false);
 
-  const [rememberMe, setRememberMe] = useState(false);
+  const [agreeTerms, setAgreeTerms] = useState(false);
 
   const [loading, setLoading] = useState(false);
 
   const [error, setError] = useState("");
 
-const [activeSlide, setActiveSlide] = useState(0);
+  const [activeSlide, setActiveSlide] = useState(0);
 
-useEffect(() => {
+  useEffect(() => {
   const timer = window.setTimeout(() => {
     setActiveSlide((current) => {
       if (current >= furnitureSlides.length - 1) {
@@ -66,10 +73,39 @@ useEffect(() => {
   };
 }, [activeSlide]);
 
+  const slide = furnitureSlides[activeSlide];
+
+  const SlideIcon = slide.icon;
+
+  const getPasswordStrength = () => {
+    if (!password) return 0;
+
+    let strength = 0;
+
+    if (password.length >= 6) strength++;
+    if (/[A-Z]/.test(password)) strength++;
+    if (/[0-9]/.test(password)) strength++;
+    if (/[^A-Za-z0-9]/.test(password)) strength++;
+
+    return strength;
+  };
+
+  const passwordStrength = getPasswordStrength();
+
   const handleSubmit = (e) => {
     e.preventDefault();
 
     setError("");
+
+    if (!fullName.trim()) {
+      setError("Please enter your full name.");
+      return;
+    }
+
+    if (fullName.trim().length < 2) {
+      setError("Please enter a valid name.");
+      return;
+    }
 
     if (!email.trim()) {
       setError("Please enter your email address.");
@@ -81,8 +117,18 @@ useEffect(() => {
       return;
     }
 
+    if (!phone.trim()) {
+      setError("Please enter your phone number.");
+      return;
+    }
+
+    if (!/^\d{10}$/.test(phone)) {
+      setError("Phone number must contain exactly 10 digits.");
+      return;
+    }
+
     if (!password) {
-      setError("Please enter your password.");
+      setError("Please create a password.");
       return;
     }
 
@@ -93,10 +139,20 @@ useEffect(() => {
       return;
     }
 
-    /*
-      Django authentication will be connected here.
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
 
-      For now we only validate the form.
+    if (!agreeTerms) {
+      setError(
+        "Please accept the Terms & Conditions to continue."
+      );
+      return;
+    }
+
+    /*
+      Django registration API will be connected here.
     */
 
     setLoading(true);
@@ -105,14 +161,10 @@ useEffect(() => {
       setLoading(false);
 
       setError(
-        "Authentication will be connected with the Django backend."
+        "Registration will be connected with the Django backend."
       );
     }, 800);
   };
-
-  const slide = furnitureSlides[activeSlide];
-
-  const SlideIcon = slide.icon;
 
   return (
     <div className="min-h-screen bg-slate-950 text-white overflow-hidden">
@@ -130,7 +182,7 @@ useEffect(() => {
       </div>
 
 
-      {/* Main Container */}
+      {/* Main */}
 
       <div className="relative min-h-screen flex items-center justify-center px-4 py-8">
 
@@ -139,9 +191,9 @@ useEffect(() => {
           <div className="grid lg:grid-cols-2 gap-8 items-center">
 
 
-            {/* =========================================
-                LEFT SIDE - FURNITURE SHOWCASE
-            ========================================= */}
+            {/* =====================================
+                LEFT SIDE
+            ===================================== */}
 
             <motion.div
               initial={{
@@ -160,8 +212,6 @@ useEffect(() => {
 
               <div className="w-full rounded-[2rem] border border-white/10 bg-white/[0.04] backdrop-blur-xl p-8 overflow-hidden relative">
 
-
-                {/* Decorative Circle */}
 
                 <motion.div
                   animate={{
@@ -188,7 +238,7 @@ useEffect(() => {
                 />
 
 
-                {/* Logo */}
+                {/* Brand */}
 
                 <div className="relative z-10 flex items-center gap-3 mb-16">
 
@@ -215,7 +265,7 @@ useEffect(() => {
                 </div>
 
 
-                {/* Main Furniture Visual */}
+                {/* Animated Furniture */}
 
                 <div className="relative z-10 flex justify-center items-center h-64">
 
@@ -241,7 +291,6 @@ useEffect(() => {
                       transition={{
                         duration: 0.5,
                       }}
-                      className="flex flex-col items-center"
                     >
 
                       <motion.div
@@ -270,7 +319,7 @@ useEffect(() => {
                 </div>
 
 
-                {/* Text */}
+                {/* Slide Text */}
 
                 <div className="relative z-10 text-center mt-6">
 
@@ -293,15 +342,11 @@ useEffect(() => {
                     >
 
                       <h1 className="text-3xl font-bold">
-
                         {slide.title}
-
                       </h1>
 
                       <p className="text-slate-400 mt-3 max-w-md mx-auto leading-relaxed">
-
                         {slide.description}
-
                       </p>
 
                     </motion.div>
@@ -311,7 +356,7 @@ useEffect(() => {
                 </div>
 
 
-                {/* Slide Indicators */}
+                {/* Indicators */}
 
                 <div className="relative z-10 flex justify-center gap-2 mt-8">
 
@@ -378,9 +423,9 @@ useEffect(() => {
             </motion.div>
 
 
-            {/* =========================================
-                RIGHT SIDE - LOGIN
-            ========================================= */}
+            {/* =====================================
+                RIGHT SIDE - SIGNUP
+            ===================================== */}
 
             <motion.div
               initial={{
@@ -403,7 +448,7 @@ useEffect(() => {
 
                 {/* Mobile Branding */}
 
-                <div className="lg:hidden flex flex-col items-center mb-8">
+                <div className="lg:hidden flex flex-col items-center mb-7">
 
                   <div className="p-4 rounded-2xl bg-amber-500/15 border border-amber-400/20 mb-4">
 
@@ -422,25 +467,25 @@ useEffect(() => {
                 </div>
 
 
-                {/* Login Card */}
+                {/* Card */}
 
                 <div className="backdrop-blur-2xl bg-white/[0.045] border border-white/10 rounded-[2rem] p-7 sm:p-9 shadow-2xl">
 
 
                   {/* Heading */}
 
-                  <div className="mb-8">
+                  <div className="mb-7">
 
                     <p className="text-amber-400 text-sm font-medium mb-2">
-                      Welcome back
+                      Get started
                     </p>
 
                     <h2 className="text-3xl font-bold">
-                      Sign in to your account
+                      Create your account
                     </h2>
 
                     <p className="text-slate-500 text-sm mt-2">
-                      Manage your furniture business from one place.
+                      Start managing your furniture business with CarpenterPro.
                     </p>
 
                   </div>
@@ -469,9 +514,7 @@ useEffect(() => {
                       >
 
                         <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-
                           {error}
-
                         </div>
 
                       </motion.div>
@@ -485,8 +528,37 @@ useEffect(() => {
 
                   <form
                     onSubmit={handleSubmit}
-                    className="space-y-5"
+                    className="space-y-4"
                   >
+
+
+                    {/* Full Name */}
+
+                    <div>
+
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Full Name
+                      </label>
+
+                      <div className="relative">
+
+                        <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+
+                        <input
+                          type="text"
+                          value={fullName}
+                          onChange={(e) => {
+                            setFullName(e.target.value);
+                            setError("");
+                          }}
+                          placeholder="Your full name"
+                          autoComplete="name"
+                          className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-slate-900/80 border border-slate-700 text-white placeholder:text-slate-600 outline-none transition-all duration-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10"
+                        />
+
+                      </div>
+
+                    </div>
 
 
                     {/* Email */}
@@ -494,9 +566,7 @@ useEffect(() => {
                     <div>
 
                       <label className="block text-sm font-medium text-slate-300 mb-2">
-
                         Email Address
-
                       </label>
 
                       <div className="relative">
@@ -512,7 +582,47 @@ useEffect(() => {
                           }}
                           placeholder="you@example.com"
                           autoComplete="email"
-                          className="w-full pl-12 pr-4 py-4 rounded-xl bg-slate-900/80 border border-slate-700 text-white placeholder:text-slate-600 outline-none transition-all duration-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10"
+                          className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-slate-900/80 border border-slate-700 text-white placeholder:text-slate-600 outline-none transition-all duration-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10"
+                        />
+
+                      </div>
+
+                    </div>
+
+
+                    {/* Phone */}
+
+                    <div>
+
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Phone Number
+                      </label>
+
+                      <div className="relative">
+
+                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+
+                        <input
+                          type="tel"
+                          value={phone}
+                          onChange={(e) => {
+                            const value =
+                              e.target.value.replace(
+                                /\D/g,
+                                ""
+                              );
+
+                            setPhone(
+                              value.slice(0, 10)
+                            );
+
+                            setError("");
+                          }}
+                          placeholder="10-digit phone number"
+                          autoComplete="tel"
+                          inputMode="numeric"
+                          maxLength={10}
+                          className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-slate-900/80 border border-slate-700 text-white placeholder:text-slate-600 outline-none transition-all duration-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10"
                         />
 
                       </div>
@@ -524,28 +634,9 @@ useEffect(() => {
 
                     <div>
 
-                      <div className="flex items-center justify-between mb-2">
-
-                        <label className="text-sm font-medium text-slate-300">
-
-                          Password
-
-                        </label>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setError(
-                              "Forgot password will be connected with Django authentication."
-                            );
-                          }}
-                          className="text-xs text-amber-400 hover:text-amber-300 transition-colors"
-                        >
-                          Forgot password?
-                        </button>
-
-                      </div>
-
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Password
+                      </label>
 
                       <div className="relative">
 
@@ -559,12 +650,14 @@ useEffect(() => {
                           }
                           value={password}
                           onChange={(e) => {
-                            setPassword(e.target.value);
+                            setPassword(
+                              e.target.value
+                            );
                             setError("");
                           }}
-                          placeholder="Enter your password"
-                          autoComplete="current-password"
-                          className="w-full pl-12 pr-12 py-4 rounded-xl bg-slate-900/80 border border-slate-700 text-white placeholder:text-slate-600 outline-none transition-all duration-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10"
+                          placeholder="Create a password"
+                          autoComplete="new-password"
+                          className="w-full pl-12 pr-12 py-3.5 rounded-xl bg-slate-900/80 border border-slate-700 text-white placeholder:text-slate-600 outline-none transition-all duration-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10"
                         />
 
                         <button
@@ -575,11 +668,6 @@ useEffect(() => {
                             )
                           }
                           className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
-                          aria-label={
-                            showPassword
-                              ? "Hide password"
-                              : "Show password"
-                          }
                         >
 
                           {showPassword ? (
@@ -592,36 +680,145 @@ useEffect(() => {
 
                       </div>
 
+
+                      {/* Password Strength */}
+
+                      {password && (
+
+                        <div className="mt-3">
+
+                          <div className="flex gap-1">
+
+                            {[1, 2, 3, 4].map(
+                              (level) => (
+
+                                <div
+                                  key={level}
+                                  className={`h-1.5 flex-1 rounded-full transition-all ${
+                                    passwordStrength >=
+                                    level
+                                      ? "bg-amber-400"
+                                      : "bg-slate-800"
+                                  }`}
+                                />
+
+                              )
+                            )}
+
+                          </div>
+
+                          <p className="text-xs text-slate-500 mt-2">
+
+                            {passwordStrength <= 1 &&
+                              "Weak password"}
+
+                            {passwordStrength === 2 &&
+                              "Fair password"}
+
+                            {passwordStrength === 3 &&
+                              "Good password"}
+
+                            {passwordStrength === 4 &&
+                              "Strong password"}
+
+                          </p>
+
+                        </div>
+
+                      )}
+
                     </div>
 
 
-                    {/* Remember Me */}
+                    {/* Confirm Password */}
 
-                    <div className="flex items-center justify-between">
+                    <div>
 
-                      <label className="flex items-center gap-3 cursor-pointer">
-
-                        <input
-                          type="checkbox"
-                          checked={rememberMe}
-                          onChange={(e) =>
-                            setRememberMe(
-                              e.target.checked
-                            )
-                          }
-                          className="w-4 h-4 accent-amber-500 cursor-pointer"
-                        />
-
-                        <span className="text-sm text-slate-400">
-                          Remember me
-                        </span>
-
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Confirm Password
                       </label>
 
+                      <div className="relative">
+
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+
+                        <input
+                          type={
+                            showConfirmPassword
+                              ? "text"
+                              : "password"
+                          }
+                          value={confirmPassword}
+                          onChange={(e) => {
+                            setConfirmPassword(
+                              e.target.value
+                            );
+                            setError("");
+                          }}
+                          placeholder="Confirm your password"
+                          autoComplete="new-password"
+                          className="w-full pl-12 pr-12 py-3.5 rounded-xl bg-slate-900/80 border border-slate-700 text-white placeholder:text-slate-600 outline-none transition-all duration-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10"
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowConfirmPassword(
+                              (prev) => !prev
+                            )
+                          }
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+                        >
+
+                          {showConfirmPassword ? (
+                            <EyeOff className="w-5 h-5" />
+                          ) : (
+                            <Eye className="w-5 h-5" />
+                          )}
+
+                        </button>
+
+                      </div>
+
                     </div>
 
 
-                    {/* Login Button */}
+                    {/* Terms */}
+
+                    <label className="flex items-start gap-3 cursor-pointer pt-1">
+
+                      <input
+                        type="checkbox"
+                        checked={agreeTerms}
+                        onChange={(e) =>
+                          setAgreeTerms(
+                            e.target.checked
+                          )
+                        }
+                        className="mt-1 w-4 h-4 accent-amber-500 cursor-pointer"
+                      />
+
+                      <span className="text-xs text-slate-500 leading-relaxed">
+
+                        I agree to the{" "}
+
+                        <span className="text-amber-400">
+                          Terms & Conditions
+                        </span>{" "}
+
+                        and{" "}
+
+                        <span className="text-amber-400">
+                          Privacy Policy
+                        </span>
+                        .
+
+                      </span>
+
+                    </label>
+
+
+                    {/* Create Account */}
 
                     <motion.button
                       whileHover={{
@@ -632,18 +829,18 @@ useEffect(() => {
                       }}
                       type="submit"
                       disabled={loading}
-                      className="w-full bg-amber-500 hover:bg-amber-400 disabled:bg-amber-700 disabled:cursor-not-allowed text-black font-bold py-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-amber-500/10"
+                      className="w-full bg-amber-500 hover:bg-amber-400 disabled:bg-amber-700 disabled:cursor-not-allowed text-black font-bold py-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-amber-500/10 mt-2"
                     >
 
                       {loading ? (
                         <>
                           <span className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
 
-                          Signing In...
+                          Creating Account...
                         </>
                       ) : (
                         <>
-                          Sign In
+                          Create Account
 
                           <ArrowRight className="w-5 h-5" />
                         </>
@@ -654,14 +851,14 @@ useEffect(() => {
                   </form>
 
 
-                  {/* Divider */}
+                  {/* Login */}
 
-                  <div className="flex items-center gap-4 my-7">
+                  <div className="flex items-center gap-4 my-6">
 
                     <div className="h-px flex-1 bg-slate-800" />
 
                     <span className="text-xs text-slate-600">
-                      NEW TO CARPENTERPRO?
+                      ALREADY A MEMBER?
                     </span>
 
                     <div className="h-px flex-1 bg-slate-800" />
@@ -669,14 +866,12 @@ useEffect(() => {
                   </div>
 
 
-                  {/* Signup */}
-
                   <Link
-                    to="/signup"
+                    to="/login"
                     className="w-full border border-slate-700 hover:border-amber-500/50 hover:bg-amber-500/5 text-white py-3.5 rounded-xl font-medium transition-all duration-300 flex items-center justify-center gap-2"
                   >
 
-                    Create a new account
+                    Sign in to your account
 
                     <ArrowRight className="w-4 h-4 text-amber-400" />
 
@@ -708,4 +903,4 @@ useEffect(() => {
   );
 };
 
-export default Login;
+export default Signup;
