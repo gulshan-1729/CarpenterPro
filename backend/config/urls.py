@@ -35,4 +35,9 @@ urlpatterns = [
     include("customers.urls"),
     ),
 
+    path(
+    "api/furniture/",
+    include("furniture.urls"),
+    ),
+
 ]

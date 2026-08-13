@@ -112,5 +112,50 @@ export const customerAPI = {
 
 };
 
+// ==========================================
+// FURNITURE API
+// ==========================================
+
+export const furnitureAPI = {
+
+  // GET /api/furniture/
+  getAll: () => {
+    return apiRequest("/furniture/");
+  },
+
+
+  // GET /api/furniture/:id/
+  getById: (id) => {
+    return apiRequest(`/furniture/${id}/`);
+  },
+
+
+  // POST /api/furniture/
+  create: (furniture) => {
+    return apiRequest("/furniture/", {
+      method: "POST",
+      body: JSON.stringify(furniture),
+    });
+  },
+
+
+  // PATCH /api/furniture/:id/
+  update: (id, furniture) => {
+    return apiRequest(`/furniture/${id}/`, {
+      method: "PATCH",
+      body: JSON.stringify(furniture),
+    });
+  },
+
+
+  // DELETE /api/furniture/:id/
+  delete: (id) => {
+    return apiRequest(`/furniture/${id}/`, {
+      method: "DELETE",
+    });
+  },
+
+};
+
 
 export default apiRequest;
