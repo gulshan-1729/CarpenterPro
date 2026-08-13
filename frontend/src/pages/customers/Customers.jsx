@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import MainLayout from "../../components/layout/MainLayout";
 import toast from "react-hot-toast";
+import { customerAPI } from "../../services/api";
 
 const emptyCustomer = {
   name: "",
@@ -19,37 +20,87 @@ const Customers = () => {
 
   const [customer, setCustomer] = useState(emptyCustomer);
 
-  useEffect(() => {
-    const savedCustomers =
-      JSON.parse(
-        localStorage.getItem("customers")
-      ) || [];
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-    setCustomers(savedCustomers);
-  }, []);
+  // ==========================================
+  // LOAD CUSTOMERS FROM DJANGO
+  // ==========================================
 
-  const saveToStorage = (data) => {
-    localStorage.setItem(
-      "customers",
-      JSON.stringify(data)
-    );
+  const loadCustomers = async () => {
+    try {
+      setLoading(true);
+
+      const data = await customerAPI.getAll();
+
+      setCustomers(
+        Array.isArray(data) ? data : []
+      );
+
+    } catch (error) {
+      console.error(
+        "Failed to load customers:",
+        error
+      );
+
+      toast.error(
+        error.message ||
+          "Unable to load customers."
+      );
+
+      setCustomers([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // ==========================================
+  // LOAD ON PAGE OPEN
+  // ==========================================
+
+  useEffect(() => {
+    loadCustomers();
+  }, []);
+
+  // ==========================================
+  // OPEN ADD MODAL
+  // ==========================================
+
   const openAddModal = () => {
-    setCustomer(emptyCustomer);
+    setCustomer({
+      ...emptyCustomer,
+    });
+
     setIsEditing(false);
     setSelectedCustomerId(null);
     setShowModal(true);
   };
 
+  // ==========================================
+  // OPEN EDIT MODAL
+  // ==========================================
+
   const openEditModal = (customerData) => {
-    setCustomer(customerData);
-    setSelectedCustomerId(customerData.id);
+    setCustomer({
+      name: customerData.name || "",
+      phone: customerData.phone || "",
+      email: customerData.email || "",
+      address: customerData.address || "",
+    });
+
+    setSelectedCustomerId(
+      customerData.id
+    );
+
     setIsEditing(true);
     setShowModal(true);
   };
 
-  const handleSave = () => {
+  // ==========================================
+  // SAVE / UPDATE CUSTOMER
+  // ==========================================
+
+  const handleSave = async () => {
     if (
       !customer.name.trim() ||
       !customer.phone.trim() ||
@@ -58,58 +109,136 @@ const Customers = () => {
       toast.error(
         "Name, Phone and Address are required."
       );
+
       return;
     }
 
     if (!/^\d{10}$/.test(customer.phone)) {
-      toast.success(
+      toast.error(
         "Phone number must be 10 digits."
       );
+
       return;
     }
 
-    let updatedCustomers = [];
+    try {
+      setSaving(true);
 
-    if (isEditing) {
-      updatedCustomers = customers.map(
-        (item) =>
-          item.id === selectedCustomerId
-            ? customer
-            : item
+      if (isEditing) {
+        // UPDATE EXISTING CUSTOMER
+
+        const updatedCustomer =
+          await customerAPI.update(
+            selectedCustomerId,
+            {
+              name: customer.name.trim(),
+              phone: customer.phone.trim(),
+              email: customer.email.trim(),
+              address: customer.address.trim(),
+            }
+          );
+
+        setCustomers((previous) =>
+          previous.map((item) =>
+            item.id === selectedCustomerId
+              ? updatedCustomer
+              : item
+          )
+        );
+
+        toast.success(
+          "Customer updated successfully."
+        );
+
+      } else {
+        // CREATE NEW CUSTOMER
+
+        const newCustomer =
+          await customerAPI.create({
+            name: customer.name.trim(),
+            phone: customer.phone.trim(),
+            email: customer.email.trim(),
+            address: customer.address.trim(),
+          });
+
+        setCustomers((previous) => [
+          newCustomer,
+          ...previous,
+        ]);
+
+        toast.success(
+          "Customer added successfully."
+        );
+      }
+
+      setShowModal(false);
+
+      setCustomer({
+        ...emptyCustomer,
+      });
+
+      setSelectedCustomerId(null);
+
+      setIsEditing(false);
+
+    } catch (error) {
+      console.error(
+        "Customer save failed:",
+        error
       );
-    } else {
-      updatedCustomers = [
-        ...customers,
-        {
-          ...customer,
-          id: Date.now(),
-        },
-      ];
+
+      toast.error(
+        error.message ||
+          "Unable to save customer."
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ==========================================
+  // DELETE CUSTOMER
+  // ==========================================
+
+  const handleDelete = async (id) => {
+    const confirmDelete =
+      window.confirm(
+        "Delete this customer?"
+      );
+
+    if (!confirmDelete) {
+      return;
     }
 
-    setCustomers(updatedCustomers);
-    saveToStorage(updatedCustomers);
+    try {
+      await customerAPI.delete(id);
 
-    setShowModal(false);
-    setCustomer(emptyCustomer);
-  };
-
-  const handleDelete = (id) => {
-    const confirmDelete = window.confirm(
-      "Delete this customer?"
-    );
-
-    if (!confirmDelete) return;
-
-    const updatedCustomers =
-      customers.filter(
-        (customer) =>
-          customer.id !== id
+      setCustomers((previous) =>
+        previous.filter(
+          (item) => item.id !== id
+        )
       );
 
-    setCustomers(updatedCustomers);
-    saveToStorage(updatedCustomers);
+      toast.success(
+        "Customer deleted successfully."
+      );
+
+    } catch (error) {
+      console.error(
+        "Customer deletion failed:",
+        error
+      );
+
+      toast.error(
+        error.message ||
+          "Unable to delete customer."
+      );
+    }
   };
+
+  // ==========================================
+  // SEARCH
+  // ==========================================
 
   const filteredCustomers =
     customers.filter((customer) => {
@@ -132,9 +261,17 @@ const Customers = () => {
       );
     });
 
+  // ==========================================
+  // RENDER
+  // ==========================================
+
   return (
     <MainLayout>
       <div className="max-w-7xl mx-auto">
+
+        {/* =====================================
+            HEADER
+        ===================================== */}
 
         <div className="flex flex-col sm:flex-row gap-4 justify-between sm:items-center mb-8">
 
@@ -150,12 +287,18 @@ const Customers = () => {
 
           <button
             onClick={openAddModal}
-            className="bg-amber-500 hover:bg-amber-600 text-black px-6 py-3 rounded-xl font-semibold"
+            disabled={loading}
+            className="bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-black px-6 py-3 rounded-xl font-semibold transition"
           >
             + Add Customer
           </button>
 
         </div>
+
+
+        {/* =====================================
+            SEARCH
+        ===================================== */}
 
         <div className="bg-slate-900 rounded-2xl p-4 mb-6">
 
@@ -173,119 +316,155 @@ const Customers = () => {
 
         </div>
 
-        <div className="bg-slate-900 rounded-2xl overflow-hidden">
-             <div className="overflow-x-auto">
-            
 
-          <table className="w-full">
+        {/* =====================================
+            LOADING
+        ===================================== */}
 
-            <thead className="bg-slate-800">
+        {loading ? (
+          <div className="bg-slate-900 rounded-2xl p-12 text-center">
 
-              <tr>
+            <div className="inline-block w-8 h-8 border-4 border-slate-600 border-t-amber-500 rounded-full animate-spin" />
 
-                <th className="p-4 text-left text-white">
-                  Name
-                </th>
+            <p className="text-slate-400 mt-4">
+              Loading customers...
+            </p>
 
-                <th className="p-4 text-left text-white">
-                  Phone
-                </th>
+          </div>
+        ) : (
 
-                <th className="p-4 text-left text-white">
-                  Email
-                </th>
+          /* ===================================
+             CUSTOMER TABLE
+          =================================== */
 
-                <th className="p-4 text-left text-white">
-                  Address
-                </th>
+          <div className="bg-slate-900 rounded-2xl overflow-hidden">
 
-                <th className="p-4 text-center text-white">
-                  Actions
-                </th>
+            <div className="overflow-x-auto">
 
-              </tr>
+              <table className="w-full">
 
-            </thead>
+                <thead className="bg-slate-800">
 
-            <tbody>
+                  <tr>
 
-              {filteredCustomers.length >
-              0 ? (
-                filteredCustomers.map(
-                  (customer) => (
-                    <tr
-                      key={customer.id}
-                      className="border-t border-slate-700 text-white"
-                    >
+                    <th className="p-4 text-left text-white">
+                      Name
+                    </th>
 
-                      <td className="p-4">
-                        {customer.name}
-                      </td>
+                    <th className="p-4 text-left text-white">
+                      Phone
+                    </th>
 
-                      <td className="p-4">
-                        {customer.phone}
-                      </td>
+                    <th className="p-4 text-left text-white">
+                      Email
+                    </th>
 
-                      <td className="p-4">
-                        {customer.email}
-                      </td>
+                    <th className="p-4 text-left text-white">
+                      Address
+                    </th>
 
-                      <td className="p-4">
-                        {customer.address}
-                      </td>
+                    <th className="p-4 text-center text-white">
+                      Actions
+                    </th>
 
-                      <td className="p-4 text-center">
+                  </tr>
 
-                        <button
-                          onClick={() =>
-                            openEditModal(
-                              customer
-                            )
-                          }
-                          className="bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded-lg mr-2"
+                </thead>
+
+                <tbody>
+
+                  {filteredCustomers.length > 0 ? (
+
+                    filteredCustomers.map(
+                      (customer) => (
+
+                        <tr
+                          key={customer.id}
+                          className="border-t border-slate-700 text-white hover:bg-slate-800 transition"
                         >
-                          Edit
-                        </button>
 
-                        <button
-                          onClick={() =>
-                            handleDelete(
-                              customer.id
-                            )
-                          }
-                          className="bg-red-600 hover:bg-red-700 px-3 py-2 rounded-lg"
-                        >
-                          Delete
-                        </button>
+                          <td className="p-4">
+                            {customer.name}
+                          </td>
 
+                          <td className="p-4">
+                            {customer.phone}
+                          </td>
+
+                          <td className="p-4">
+                            {customer.email || "-"}
+                          </td>
+
+                          <td className="p-4">
+                            {customer.address}
+                          </td>
+
+                          <td className="p-4 text-center">
+
+                            <button
+                              onClick={() =>
+                                openEditModal(
+                                  customer
+                                )
+                              }
+                              className="bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded-lg mr-2 transition"
+                            >
+                              Edit
+                            </button>
+
+                            <button
+                              onClick={() =>
+                                handleDelete(
+                                  customer.id
+                                )
+                              }
+                              className="bg-red-600 hover:bg-red-700 px-3 py-2 rounded-lg transition"
+                            >
+                              Delete
+                            </button>
+
+                          </td>
+
+                        </tr>
+
+                      )
+                    )
+
+                  ) : (
+
+                    <tr>
+
+                      <td
+                        colSpan="5"
+                        className="text-center text-slate-400 p-8"
+                      >
+                        {searchTerm
+                          ? "No customers match your search."
+                          : "No customers found."}
                       </td>
 
                     </tr>
-                  )
-                )
-              ) : (
-                <tr>
 
-                  <td
-                    colSpan="5"
-                    className="text-center text-slate-400 p-8"
-                  >
-                    No customers found
-                  </td>
+                  )}
 
-                </tr>
-              )}
+                </tbody>
 
-            </tbody>
+              </table>
 
-          </table>
+            </div>
 
-         </div>
+          </div>
 
-        </div>
+        )}
+
+
+        {/* =====================================
+            ADD / EDIT MODAL
+        ===================================== */}
 
         {showModal && (
-          <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+
+          <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 px-4">
 
             <div className="bg-slate-900 rounded-2xl p-6 w-full max-w-lg">
 
@@ -297,7 +476,10 @@ const Customers = () => {
 
               </h2>
 
+
               <div className="space-y-4">
+
+                {/* Name */}
 
                 <input
                   type="text"
@@ -306,12 +488,14 @@ const Customers = () => {
                   onChange={(e) =>
                     setCustomer({
                       ...customer,
-                      name:
-                        e.target.value,
+                      name: e.target.value,
                     })
                   }
-                  className="w-full bg-slate-800 text-white p-3 rounded-xl"
+                  className="w-full bg-slate-800 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-amber-500"
                 />
+
+
+                {/* Phone */}
 
                 <input
                   type="text"
@@ -320,20 +504,16 @@ const Customers = () => {
                   onChange={(e) =>
                     setCustomer({
                       ...customer,
-                      phone:
-                        e.target.value
-                          .replace(
-                            /\D/g,
-                            ""
-                          )
-                          .slice(
-                            0,
-                            10
-                          ),
+                      phone: e.target.value
+                        .replace(/\D/g, "")
+                        .slice(0, 10),
                     })
                   }
-                  className="w-full bg-slate-800 text-white p-3 rounded-xl"
+                  className="w-full bg-slate-800 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-amber-500"
                 />
+
+
+                {/* Email */}
 
                 <input
                   type="email"
@@ -342,12 +522,14 @@ const Customers = () => {
                   onChange={(e) =>
                     setCustomer({
                       ...customer,
-                      email:
-                        e.target.value,
+                      email: e.target.value,
                     })
                   }
-                  className="w-full bg-slate-800 text-white p-3 rounded-xl"
+                  className="w-full bg-slate-800 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-amber-500"
                 />
+
+
+                {/* Address */}
 
                 <textarea
                   placeholder="Address"
@@ -355,33 +537,45 @@ const Customers = () => {
                   onChange={(e) =>
                     setCustomer({
                       ...customer,
-                      address:
-                        e.target.value,
+                      address: e.target.value,
                     })
                   }
-                  className="w-full bg-slate-800 text-white p-3 rounded-xl"
+                  rows={3}
+                  className="w-full bg-slate-800 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-amber-500 resize-none"
                 />
 
               </div>
 
+
+              {/* =================================
+                  MODAL ACTIONS
+              ================================= */}
+
               <div className="flex justify-end gap-3 mt-6">
 
                 <button
-                  onClick={() =>
-                    setShowModal(false)
-                  }
-                  className="bg-slate-700 px-4 py-2 rounded-lg text-white"
+                  onClick={() => {
+                    setShowModal(false);
+                    setCustomer({
+                      ...emptyCustomer,
+                    });
+                  }}
+                  disabled={saving}
+                  className="bg-slate-700 hover:bg-slate-600 disabled:opacity-50 px-4 py-2 rounded-lg text-white transition"
                 >
                   Cancel
                 </button>
 
                 <button
                   onClick={handleSave}
-                  className="bg-amber-500 px-4 py-2 rounded-lg text-black font-semibold"
+                  disabled={saving}
+                  className="bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-black font-semibold transition"
                 >
-                  {isEditing
-                    ? "Update"
-                    : "Save"}
+                  {saving
+                    ? "Saving..."
+                    : isEditing
+                      ? "Update"
+                      : "Save"}
                 </button>
 
               </div>
@@ -389,6 +583,7 @@ const Customers = () => {
             </div>
 
           </div>
+
         )}
 
       </div>
