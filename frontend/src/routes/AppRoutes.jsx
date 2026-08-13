@@ -1,9 +1,4 @@
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import Login from "../pages/auth/Login";
 import Signup from "../pages/auth/Signup";
@@ -15,82 +10,73 @@ import Customers from "../pages/customers/Customers";
 import Reports from "../pages/reports/Reports";
 import CompanySettings from "../pages/settings/CompanySettings";
 
+import ProtectedRoute from "./ProtectedRoute";
 
 const AppRoutes = () => {
   return (
     <BrowserRouter>
-
       <Routes>
 
-        {/* =========================
-            AUTHENTICATION
-        ========================= */}
+        {/* =========================================
+            PUBLIC ROUTES
+        ========================================= */}
 
-        <Route
-          path="/"
-          element={<Navigate to="/login" replace />}
-        />
+        <Route path="/" element={<Login />} />
 
-        <Route
-          path="/login"
-          element={<Login />}
-        />
-
-        <Route
-          path="/signup"
-          element={<Signup />}
-        />
+        <Route path="/signup" element={<Signup />} />
 
 
-        {/* =========================
-            APPLICATION
-        ========================= */}
+        {/* =========================================
+            PROTECTED ROUTES
+        ========================================= */}
 
-        <Route
-          path="/dashboard"
-          element={<Dashboard />}
-        />
+        <Route element={<ProtectedRoute />}>
 
-        <Route
-          path="/reports"
-          element={<Reports />}
-        />
+          <Route
+            path="/dashboard"
+            element={<Dashboard />}
+          />
 
-        <Route
-          path="/quotations"
-          element={<QuotationV2 />}
-        />
+          <Route
+            path="/quotations"
+            element={<QuotationV2 />}
+          />
 
-        <Route
-          path="/furniture"
-          element={<Furniture />}
-        />
+          <Route
+            path="/furniture"
+            element={<Furniture />}
+          />
 
-        <Route
-          path="/customers"
-          element={<Customers />}
-        />
+          <Route
+            path="/customers"
+            element={<Customers />}
+          />
 
-        <Route
-          path="/settings"
-          element={<CompanySettings />}
-        />
+          <Route
+            path="/reports"
+            element={<Reports />}
+          />
+
+          <Route
+            path="/settings"
+            element={<CompanySettings />}
+          />
+
+        </Route>
 
 
-        {/* =========================
-            FALLBACK
-        ========================= */}
+        {/* =========================================
+            FALLBACK ROUTE
+        ========================================= */}
 
         <Route
           path="*"
-          element={<Navigate to="/login" replace />}
+          element={<Navigate to="/" replace />}
         />
 
       </Routes>
-
     </BrowserRouter>
   );
 };
-
 
 export default AppRoutes;

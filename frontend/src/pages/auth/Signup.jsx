@@ -15,7 +15,10 @@ import {
   Sofa,
   BedDouble,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+
+const API_URL = "http://127.0.0.1:8000/api/auth";
 
 const furnitureSlides = [
   {
@@ -39,6 +42,9 @@ const furnitureSlides = [
 ];
 
 const Signup = () => {
+  const navigate = useNavigate();
+  const { login } = useAuth();
+
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -46,32 +52,30 @@ const Signup = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] =
-    useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [agreeTerms, setAgreeTerms] = useState(false);
 
   const [loading, setLoading] = useState(false);
-
   const [error, setError] = useState("");
 
   const [activeSlide, setActiveSlide] = useState(0);
 
   useEffect(() => {
-  const timer = window.setTimeout(() => {
-    setActiveSlide((current) => {
-      if (current >= furnitureSlides.length - 1) {
-        return 0;
-      }
+    const timer = window.setTimeout(() => {
+      setActiveSlide((current) => {
+        if (current >= furnitureSlides.length - 1) {
+          return 0;
+        }
 
-      return current + 1;
-    });
-  }, 3000);
+        return current + 1;
+      });
+    }, 3000);
 
-  return () => {
-    window.clearTimeout(timer);
-  };
-}, [activeSlide]);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [activeSlide]);
 
   const slide = furnitureSlides[activeSlide];
 
@@ -92,10 +96,14 @@ const Signup = () => {
 
   const passwordStrength = getPasswordStrength();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     setError("");
+
+    // -------------------------
+    // Frontend validation
+    // -------------------------
 
     if (!fullName.trim()) {
       setError("Please enter your full name.");
@@ -133,9 +141,7 @@ const Signup = () => {
     }
 
     if (password.length < 6) {
-      setError(
-        "Password must contain at least 6 characters."
-      );
+      setError("Password must contain at least 6 characters.");
       return;
     }
 
@@ -151,19 +157,66 @@ const Signup = () => {
       return;
     }
 
-    /*
-      Django registration API will be connected here.
-    */
+    // -------------------------
+    // Signup API
+    // -------------------------
 
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    setTimeout(() => {
-      setLoading(false);
+      const response = await fetch(
+        `${API_URL}/signup/`,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json",
+          },
+
+          body: JSON.stringify({
+            name: fullName.trim(),
+            email: email.trim().toLowerCase(),
+            password,
+            confirmPassword,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Unable to create your account."
+        );
+      }
+
+      // -------------------------
+      // Store authentication
+      // -------------------------
+
+     login({
+     access: data.access,
+     refresh: data.refresh,
+     user: data.user,
+     rememberMe: true,
+     });
+      // -------------------------
+      // Success
+      // -------------------------
+
+      navigate("/dashboard");
+
+    } catch (error) {
+      console.error("Signup error:", error);
 
       setError(
-        "Registration will be connected with the Django backend."
+        error.message ||
+          "Something went wrong. Please try again."
       );
-    }, 800);
+
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -181,7 +234,6 @@ const Signup = () => {
 
       </div>
 
-
       {/* Main */}
 
       <div className="relative min-h-screen flex items-center justify-center px-4 py-8">
@@ -189,7 +241,6 @@ const Signup = () => {
         <div className="w-full max-w-6xl">
 
           <div className="grid lg:grid-cols-2 gap-8 items-center">
-
 
             {/* =====================================
                 LEFT SIDE
@@ -212,6 +263,7 @@ const Signup = () => {
 
               <div className="w-full rounded-[2rem] border border-white/10 bg-white/[0.04] backdrop-blur-xl p-8 overflow-hidden relative">
 
+                {/* Rotating circles */}
 
                 <motion.div
                   animate={{
@@ -236,7 +288,6 @@ const Signup = () => {
                   }}
                   className="absolute -left-40 -bottom-40 w-96 h-96 rounded-full border border-white/5"
                 />
-
 
                 {/* Brand */}
 
@@ -263,7 +314,6 @@ const Signup = () => {
                   </div>
 
                 </div>
-
 
                 {/* Animated Furniture */}
 
@@ -318,7 +368,6 @@ const Signup = () => {
 
                 </div>
 
-
                 {/* Slide Text */}
 
                 <div className="relative z-10 text-center mt-6">
@@ -355,7 +404,6 @@ const Signup = () => {
 
                 </div>
 
-
                 {/* Indicators */}
 
                 <div className="relative z-10 flex justify-center gap-2 mt-8">
@@ -380,7 +428,6 @@ const Signup = () => {
                   )}
 
                 </div>
-
 
                 {/* Features */}
 
@@ -422,7 +469,6 @@ const Signup = () => {
 
             </motion.div>
 
-
             {/* =====================================
                 RIGHT SIDE - SIGNUP
             ===================================== */}
@@ -445,7 +491,6 @@ const Signup = () => {
 
               <div className="w-full max-w-md mx-auto">
 
-
                 {/* Mobile Branding */}
 
                 <div className="lg:hidden flex flex-col items-center mb-7">
@@ -466,11 +511,9 @@ const Signup = () => {
 
                 </div>
 
-
                 {/* Card */}
 
                 <div className="backdrop-blur-2xl bg-white/[0.045] border border-white/10 rounded-[2rem] p-7 sm:p-9 shadow-2xl">
-
 
                   {/* Heading */}
 
@@ -489,7 +532,6 @@ const Signup = () => {
                     </p>
 
                   </div>
-
 
                   {/* Error */}
 
@@ -523,14 +565,12 @@ const Signup = () => {
 
                   </AnimatePresence>
 
-
                   {/* Form */}
 
                   <form
                     onSubmit={handleSubmit}
                     className="space-y-4"
                   >
-
 
                     {/* Full Name */}
 
@@ -560,7 +600,6 @@ const Signup = () => {
 
                     </div>
 
-
                     {/* Email */}
 
                     <div>
@@ -588,7 +627,6 @@ const Signup = () => {
                       </div>
 
                     </div>
-
 
                     {/* Phone */}
 
@@ -628,7 +666,6 @@ const Signup = () => {
                       </div>
 
                     </div>
-
 
                     {/* Password */}
 
@@ -680,7 +717,6 @@ const Signup = () => {
 
                       </div>
 
-
                       {/* Password Strength */}
 
                       {password && (
@@ -728,7 +764,6 @@ const Signup = () => {
                       )}
 
                     </div>
-
 
                     {/* Confirm Password */}
 
@@ -782,7 +817,6 @@ const Signup = () => {
 
                     </div>
 
-
                     {/* Terms */}
 
                     <label className="flex items-start gap-3 cursor-pointer pt-1">
@@ -817,7 +851,6 @@ const Signup = () => {
 
                     </label>
 
-
                     {/* Create Account */}
 
                     <motion.button
@@ -850,7 +883,6 @@ const Signup = () => {
 
                   </form>
 
-
                   {/* Login */}
 
                   <div className="flex items-center gap-4 my-6">
@@ -865,7 +897,6 @@ const Signup = () => {
 
                   </div>
 
-
                   <Link
                     to="/login"
                     className="w-full border border-slate-700 hover:border-amber-500/50 hover:bg-amber-500/5 text-white py-3.5 rounded-xl font-medium transition-all duration-300 flex items-center justify-center gap-2"
@@ -876,7 +907,6 @@ const Signup = () => {
                     <ArrowRight className="w-4 h-4 text-amber-400" />
 
                   </Link>
-
 
                   {/* Footer */}
 

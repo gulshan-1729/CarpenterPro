@@ -13,7 +13,10 @@ import {
   Ruler,
   ShieldCheck,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+
+const API_URL = "http://127.0.0.1:8000/api/auth";
 
 const furnitureSlides = [
   {
@@ -37,6 +40,9 @@ const furnitureSlides = [
 ];
 
 const Login = () => {
+  const navigate = useNavigate();
+  const { login } = useAuth();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -48,28 +54,40 @@ const Login = () => {
 
   const [error, setError] = useState("");
 
-const [activeSlide, setActiveSlide] = useState(0);
+  const [activeSlide, setActiveSlide] = useState(0);
 
-useEffect(() => {
-  const timer = window.setTimeout(() => {
-    setActiveSlide((current) => {
-      if (current >= furnitureSlides.length - 1) {
-        return 0;
-      }
+  // -----------------------------------------
+  // Furniture slider
+  // -----------------------------------------
 
-      return current + 1;
-    });
-  }, 3000);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setActiveSlide((current) => {
+        if (current >= furnitureSlides.length - 1) {
+          return 0;
+        }
 
-  return () => {
-    window.clearTimeout(timer);
-  };
-}, [activeSlide]);
+        return current + 1;
+      });
+    }, 3000);
 
-  const handleSubmit = (e) => {
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [activeSlide]);
+
+  // -----------------------------------------
+  // Login
+  // -----------------------------------------
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     setError("");
+
+    // -------------------------
+    // Frontend validation
+    // -------------------------
 
     if (!email.trim()) {
       setError("Please enter your email address.");
@@ -93,21 +111,83 @@ useEffect(() => {
       return;
     }
 
-    /*
-      Django authentication will be connected here.
+    // -------------------------
+    // Django Login API
+    // -------------------------
 
-      For now we only validate the form.
-    */
+    try {
+      setLoading(true);
 
-    setLoading(true);
+      const response = await fetch(
+        `${API_URL}/login/`,
+        {
+          method: "POST",
 
-    setTimeout(() => {
-      setLoading(false);
+          headers: {
+            "Content-Type": "application/json",
+          },
+
+          body: JSON.stringify({
+            email: email.trim().toLowerCase(),
+            password,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      // -------------------------
+      // Django error
+      // -------------------------
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Invalid email or password."
+        );
+      }
+
+      // -------------------------
+      // Store authentication
+      // -------------------------
+
+      login({
+      access: data.access,
+      refresh: data.refresh,
+      user: data.user,
+      rememberMe,
+     });
+
+      // -------------------------
+      // Redirect
+      // -------------------------
+
+      navigate("/dashboard");
+
+    } catch (error) {
+      console.error(
+        "Login error:",
+        error
+      );
 
       setError(
-        "Authentication will be connected with the Django backend."
+        error.message ||
+          "Unable to login. Please try again."
       );
-    }, 800);
+
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // -----------------------------------------
+  // Forgot Password
+  // -----------------------------------------
+
+  const handleForgotPassword = () => {
+    setError(
+      "Forgot password will be connected with Django authentication."
+    );
   };
 
   const slide = furnitureSlides[activeSlide];
@@ -117,7 +197,9 @@ useEffect(() => {
   return (
     <div className="min-h-screen bg-slate-950 text-white overflow-hidden">
 
-      {/* Background Effects */}
+      {/* =========================================
+          BACKGROUND EFFECTS
+      ========================================= */}
 
       <div className="fixed inset-0 pointer-events-none">
 
@@ -129,15 +211,15 @@ useEffect(() => {
 
       </div>
 
-
-      {/* Main Container */}
+      {/* =========================================
+          MAIN CONTAINER
+      ========================================= */}
 
       <div className="relative min-h-screen flex items-center justify-center px-4 py-8">
 
         <div className="w-full max-w-6xl">
 
           <div className="grid lg:grid-cols-2 gap-8 items-center">
-
 
             {/* =========================================
                 LEFT SIDE - FURNITURE SHOWCASE
@@ -159,7 +241,6 @@ useEffect(() => {
             >
 
               <div className="w-full rounded-[2rem] border border-white/10 bg-white/[0.04] backdrop-blur-xl p-8 overflow-hidden relative">
-
 
                 {/* Decorative Circle */}
 
@@ -187,7 +268,6 @@ useEffect(() => {
                   className="absolute -left-40 -bottom-40 w-96 h-96 rounded-full border border-white/5"
                 />
 
-
                 {/* Logo */}
 
                 <div className="relative z-10 flex items-center gap-3 mb-16">
@@ -213,7 +293,6 @@ useEffect(() => {
                   </div>
 
                 </div>
-
 
                 {/* Main Furniture Visual */}
 
@@ -269,7 +348,6 @@ useEffect(() => {
 
                 </div>
 
-
                 {/* Text */}
 
                 <div className="relative z-10 text-center mt-6">
@@ -293,15 +371,11 @@ useEffect(() => {
                     >
 
                       <h1 className="text-3xl font-bold">
-
                         {slide.title}
-
                       </h1>
 
                       <p className="text-slate-400 mt-3 max-w-md mx-auto leading-relaxed">
-
                         {slide.description}
-
                       </p>
 
                     </motion.div>
@@ -309,7 +383,6 @@ useEffect(() => {
                   </AnimatePresence>
 
                 </div>
-
 
                 {/* Slide Indicators */}
 
@@ -335,7 +408,6 @@ useEffect(() => {
                   )}
 
                 </div>
-
 
                 {/* Features */}
 
@@ -377,7 +449,6 @@ useEffect(() => {
 
             </motion.div>
 
-
             {/* =========================================
                 RIGHT SIDE - LOGIN
             ========================================= */}
@@ -400,7 +471,6 @@ useEffect(() => {
 
               <div className="w-full max-w-md mx-auto">
 
-
                 {/* Mobile Branding */}
 
                 <div className="lg:hidden flex flex-col items-center mb-8">
@@ -421,11 +491,9 @@ useEffect(() => {
 
                 </div>
 
-
                 {/* Login Card */}
 
                 <div className="backdrop-blur-2xl bg-white/[0.045] border border-white/10 rounded-[2rem] p-7 sm:p-9 shadow-2xl">
-
 
                   {/* Heading */}
 
@@ -444,7 +512,6 @@ useEffect(() => {
                     </p>
 
                   </div>
-
 
                   {/* Error */}
 
@@ -469,9 +536,7 @@ useEffect(() => {
                       >
 
                         <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-
                           {error}
-
                         </div>
 
                       </motion.div>
@@ -480,7 +545,6 @@ useEffect(() => {
 
                   </AnimatePresence>
 
-
                   {/* Form */}
 
                   <form
@@ -488,15 +552,12 @@ useEffect(() => {
                     className="space-y-5"
                   >
 
-
                     {/* Email */}
 
                     <div>
 
                       <label className="block text-sm font-medium text-slate-300 mb-2">
-
                         Email Address
-
                       </label>
 
                       <div className="relative">
@@ -519,7 +580,6 @@ useEffect(() => {
 
                     </div>
 
-
                     {/* Password */}
 
                     <div>
@@ -527,25 +587,18 @@ useEffect(() => {
                       <div className="flex items-center justify-between mb-2">
 
                         <label className="text-sm font-medium text-slate-300">
-
                           Password
-
                         </label>
 
                         <button
                           type="button"
-                          onClick={() => {
-                            setError(
-                              "Forgot password will be connected with Django authentication."
-                            );
-                          }}
+                          onClick={handleForgotPassword}
                           className="text-xs text-amber-400 hover:text-amber-300 transition-colors"
                         >
                           Forgot password?
                         </button>
 
                       </div>
-
 
                       <div className="relative">
 
@@ -594,7 +647,6 @@ useEffect(() => {
 
                     </div>
 
-
                     {/* Remember Me */}
 
                     <div className="flex items-center justify-between">
@@ -619,7 +671,6 @@ useEffect(() => {
                       </label>
 
                     </div>
-
 
                     {/* Login Button */}
 
@@ -653,7 +704,6 @@ useEffect(() => {
 
                   </form>
 
-
                   {/* Divider */}
 
                   <div className="flex items-center gap-4 my-7">
@@ -668,7 +718,6 @@ useEffect(() => {
 
                   </div>
 
-
                   {/* Signup */}
 
                   <Link
@@ -681,7 +730,6 @@ useEffect(() => {
                     <ArrowRight className="w-4 h-4 text-amber-400" />
 
                   </Link>
-
 
                   {/* Footer */}
 
