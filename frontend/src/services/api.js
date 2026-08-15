@@ -1,6 +1,5 @@
 const API_BASE_URL = "http://127.0.0.1:8000/api";
 
-
 // ==========================================
 // GET STORED ACCESS TOKEN
 // ==========================================
@@ -12,6 +11,99 @@ const getAccessToken = () => {
   );
 };
 
+// ==========================================
+// GET STORED REFRESH TOKEN
+// ==========================================
+
+const getRefreshToken = () => {
+  return (
+    localStorage.getItem("refreshToken") ||
+    sessionStorage.getItem("refreshToken")
+  );
+};
+
+// ==========================================
+// SAVE NEW ACCESS TOKEN
+// ==========================================
+
+const saveAccessToken = (accessToken) => {
+  if (localStorage.getItem("rememberMe") === "true") {
+    localStorage.setItem("accessToken", accessToken);
+  } else {
+    sessionStorage.setItem("accessToken", accessToken);
+  }
+};
+
+// ==========================================
+// REFRESH ACCESS TOKEN
+// ==========================================
+
+let refreshPromise = null;
+
+const refreshAccessToken = async () => {
+  const refreshToken = getRefreshToken();
+
+  if (!refreshToken) {
+    return null;
+  }
+
+  // Prevent multiple API requests from
+  // refreshing the token simultaneously.
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+
+  refreshPromise = fetch(
+    `${API_BASE_URL}/auth/token/refresh/`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        refresh: refreshToken,
+      }),
+    }
+  )
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error("Refresh token expired.");
+      }
+
+      const data = await response.json();
+
+      if (!data.access) {
+        throw new Error("New access token was not returned.");
+      }
+
+      saveAccessToken(data.access);
+
+      return data.access;
+    })
+    .catch(() => {
+      return null;
+    })
+    .finally(() => {
+      refreshPromise = null;
+    });
+
+  return refreshPromise;
+};
+
+// ==========================================
+// CLEAR AUTH DATA
+// ==========================================
+
+const clearAuthData = () => {
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("refreshToken");
+  localStorage.removeItem("currentUser");
+  localStorage.removeItem("rememberMe");
+
+  sessionStorage.removeItem("accessToken");
+  sessionStorage.removeItem("refreshToken");
+  sessionStorage.removeItem("currentUser");
+};
 
 // ==========================================
 // COMMON API REQUEST
@@ -19,31 +111,69 @@ const getAccessToken = () => {
 
 const apiRequest = async (
   endpoint,
-  options = {}
+  options = {},
+  isRetry = false
 ) => {
-  const token = getAccessToken();
+  let token = getAccessToken();
 
-  const headers = {
-    "Content-Type": "application/json",
-    ...(options.headers || {}),
+  const makeRequest = async (accessToken) => {
+    const headers = {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    };
+
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`;
+    }
+
+    return fetch(
+      `${API_BASE_URL}${endpoint}`,
+      {
+        ...options,
+        headers,
+      }
+    );
   };
 
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
+  let response = await makeRequest(token);
+
+  // ========================================
+  // ACCESS TOKEN EXPIRED
+  // ========================================
+
+  if (response.status === 401 && !isRetry) {
+    const newAccessToken =
+      await refreshAccessToken();
+
+    if (newAccessToken) {
+      token = newAccessToken;
+
+      // Retry original request with fresh token
+      response = await apiRequest(
+        endpoint,
+        options,
+        true
+      );
+    } else {
+      clearAuthData();
+
+      throw new Error(
+        "Your session has expired. Please login again."
+      );
+    }
   }
 
-  const response = await fetch(
-    `${API_BASE_URL}${endpoint}`,
-    {
-      ...options,
-      headers,
-    }
-  );
+  // ========================================
+  // NO CONTENT
+  // ========================================
 
-  // No content response, commonly used for DELETE
   if (response.status === 204) {
     return null;
   }
+
+  // ========================================
+  // READ RESPONSE
+  // ========================================
 
   let data = null;
 
@@ -52,6 +182,10 @@ const apiRequest = async (
   } catch {
     data = null;
   }
+
+  // ========================================
+  // HANDLE ERRORS
+  // ========================================
 
   if (!response.ok) {
     const message =
@@ -66,26 +200,20 @@ const apiRequest = async (
   return data;
 };
 
-
 // ==========================================
 // CUSTOMER API
 // ==========================================
 
 export const customerAPI = {
 
-  // GET /api/customers/
   getAll: () => {
     return apiRequest("/customers/");
   },
 
-
-  // GET /api/customers/:id/
   getById: (id) => {
     return apiRequest(`/customers/${id}/`);
   },
 
-
-  // POST /api/customers/
   create: (customer) => {
     return apiRequest("/customers/", {
       method: "POST",
@@ -93,8 +221,6 @@ export const customerAPI = {
     });
   },
 
-
-  // PATCH /api/customers/:id/
   update: (id, customer) => {
     return apiRequest(`/customers/${id}/`, {
       method: "PATCH",
@@ -102,8 +228,6 @@ export const customerAPI = {
     });
   },
 
-
-  // DELETE /api/customers/:id/
   delete: (id) => {
     return apiRequest(`/customers/${id}/`, {
       method: "DELETE",
@@ -118,19 +242,14 @@ export const customerAPI = {
 
 export const furnitureAPI = {
 
-  // GET /api/furniture/
   getAll: () => {
     return apiRequest("/furniture/");
   },
 
-
-  // GET /api/furniture/:id/
   getById: (id) => {
     return apiRequest(`/furniture/${id}/`);
   },
 
-
-  // POST /api/furniture/
   create: (furniture) => {
     return apiRequest("/furniture/", {
       method: "POST",
@@ -138,8 +257,6 @@ export const furnitureAPI = {
     });
   },
 
-
-  // PATCH /api/furniture/:id/
   update: (id, furniture) => {
     return apiRequest(`/furniture/${id}/`, {
       method: "PATCH",
@@ -147,8 +264,6 @@ export const furnitureAPI = {
     });
   },
 
-
-  // DELETE /api/furniture/:id/
   delete: (id) => {
     return apiRequest(`/furniture/${id}/`, {
       method: "DELETE",
@@ -157,5 +272,44 @@ export const furnitureAPI = {
 
 };
 
+// ==========================================
+// QUOTATION API
+// ==========================================
+
+export const quotationAPI = {
+
+  getAll: () => {
+    return apiRequest("/quotations/");
+  },
+
+  getById: (id) => {
+    return apiRequest(`/quotations/${id}/`);
+  },
+
+  create: (quotation) => {
+    return apiRequest("/quotations/", {
+      method: "POST",
+      body: JSON.stringify(quotation),
+    });
+  },
+
+  update: (id, quotation) => {
+    return apiRequest(`/quotations/${id}/`, {
+      method: "PATCH",
+      body: JSON.stringify(quotation),
+    });
+  },
+
+  delete: (id) => {
+    return apiRequest(`/quotations/${id}/`, {
+      method: "DELETE",
+    });
+  },
+
+};
+
+// ==========================================
+// DEFAULT EXPORT
+// ==========================================
 
 export default apiRequest;

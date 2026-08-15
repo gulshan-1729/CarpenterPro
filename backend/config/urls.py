@@ -40,4 +40,9 @@ urlpatterns = [
     include("furniture.urls"),
     ),
 
+    path(
+    "api/quotations/",
+    include("quotations.urls"),
+    ),
+
 ]

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import MainLayout from "../../components/layout/MainLayout";
+import { customerAPI, furnitureAPI, quotationAPI } from "../../services/api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -12,8 +13,20 @@ const QuotationV2 = () => {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
 
+  // ID of the customer stored in Django/MySQL.
+  // This is required when creating/updating a quotation.
+  const [customerId, setCustomerId] = useState(null);
+
   const [customers, setCustomers] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
+
+  // Saved furniture catalogue from Django/MySQL.
+  // Used by quotation items for search suggestions and automatic rate filling.
+  const [furnitureCatalog, setFurnitureCatalog] = useState([]);
+  const [furnitureSuggestions, setFurnitureSuggestions] = useState({});
+
+  const [loadingQuotations, setLoadingQuotations] = useState(true);
+  const [savingQuotation, setSavingQuotation] = useState(false);
 
   //Company Settings
   const [company, setCompany] = useState(() => {
@@ -97,10 +110,7 @@ const QuotationV2 = () => {
   // QUOTATIONS
   // ==========================================
 
-  const [quotations, setQuotations] = useState(() => {
-    const saved = localStorage.getItem("quotationsV2");
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [quotations, setQuotations] = useState([]);
 
   const [editingId, setEditingId] = useState(null);
 
@@ -111,22 +121,122 @@ const QuotationV2 = () => {
     useState(false);
 
   // ==========================================
-  // LOCAL STORAGE
+  // BACKEND DATA HELPERS
   // ==========================================
 
-  useEffect(() => {
-    localStorage.setItem(
-      "quotationsV2",
-      JSON.stringify(quotations)
-    );
-  }, [quotations]);
+  const formatQuotationDate = (date) => {
+    if (!date) return "";
+
+    const parsed = new Date(date);
+
+    if (Number.isNaN(parsed.getTime())) {
+      return date;
+    }
+
+    return parsed.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  const normalizeQuotation = (
+    quotation,
+    customerList = customers
+  ) => {
+    const linkedCustomer =
+      customerList.find(
+        (customer) =>
+          customer.id === quotation.customer
+      );
+
+    return {
+    id: quotation.id,
+    invoiceNo: quotation.invoice_no,
+    customerId: quotation.customer,
+    customerName:
+      quotation.customer_name ||
+      quotation.customerName ||
+      linkedCustomer?.name ||
+      "",
+
+    phone: quotation.phone || "",
+    address: quotation.address || "",
+
+    items: (quotation.items || []).map((item) => ({
+      id: item.id ?? Date.now() + Math.random(),
+      furnitureName:
+        item.furniture_name ||
+        item.furnitureName ||
+        "",
+      length: numberValue(item.length),
+      width: numberValue(item.width),
+      area: numberValue(item.area),
+      rate: numberValue(item.rate),
+      qty: numberValue(item.qty),
+      amount: numberValue(item.amount),
+    })),
+
+    gst: numberValue(quotation.gst),
+    discount: numberValue(quotation.discount),
+    subtotal: numberValue(quotation.subtotal),
+    gstAmount: numberValue(
+      quotation.gst_amount ?? quotation.gstAmount
+    ),
+    discountAmount: numberValue(
+      quotation.discount_amount ??
+        quotation.discountAmount
+    ),
+    grandTotal: numberValue(
+      quotation.grand_total ??
+        quotation.grandTotal
+    ),
+
+    date: formatQuotationDate(quotation.date),
+    rawDate: quotation.date,
+    };
+  };
+
+  const loadBackendData = async () => {
+    try {
+      setLoadingQuotations(true);
+
+      const [customerData, furnitureData, quotationData] =
+        await Promise.all([
+          customerAPI.getAll(),
+          furnitureAPI.getAll(),
+          quotationAPI.getAll(),
+        ]);
+
+      setCustomers(customerData || []);
+      setFurnitureCatalog(furnitureData || []);
+
+      setQuotations(
+        (quotationData || []).map(
+          (quotation) =>
+            normalizeQuotation(
+              quotation,
+              customerData || []
+            )
+        )
+      );
+    } catch (error) {
+      console.error(
+        "Failed to load quotation data:",
+        error
+      );
+
+      alert(
+        error.message ||
+          "Failed to load quotation data."
+      );
+    } finally {
+      setLoadingQuotations(false);
+    }
+  };
 
   useEffect(() => {
-    const savedCustomers =
-      JSON.parse(localStorage.getItem("customers")) ||
-      [];
-
-    setCustomers(savedCustomers);
+    loadBackendData();
   }, []);
 
   useEffect(() => {
@@ -207,106 +317,171 @@ const QuotationV2 = () => {
 
   const handleItemChange = (id, field, value) => {
 
-  setItems((prev) =>
-    prev.map((item) => {
+    setItems((prev) =>
+      prev.map((item) => {
 
-      if (item.id !== id) return item;
+        if (item.id !== id) return item;
 
-      let updated = {
-        ...item,
-        [field]: value,
-      };
+        let updated = {
+          ...item,
+          [field]: value,
+        };
 
-      // -------------------------
-      // Length / Width Changed
-      // -------------------------
+        // -------------------------
+        // Furniture Name Changed
+        // -------------------------
 
-      if (field === "length" || field === "width") {
+        if (field === "furnitureName") {
+          const searchValue = String(value || "").trim();
 
-        updated.length = numberValue(updated.length);
-        updated.width = numberValue(updated.width);
+          const filtered = furnitureCatalog.filter((furniture) =>
+            furniture.name
+              .toLowerCase()
+              .includes(searchValue.toLowerCase())
+          );
 
-        updated.area = round(
-          updated.length * updated.width
-        );
+          setFurnitureSuggestions((prevSuggestions) => ({
+            ...prevSuggestions,
+            [id]: searchValue ? filtered : [],
+          }));
 
-        updated.amount = round(
-          updated.area *
-          numberValue(updated.rate) *
-          numberValue(updated.qty)
-        );
+          // If the user types an exact saved furniture name,
+          // automatically use its saved rate.
+          const matchedFurniture = furnitureCatalog.find(
+            (furniture) =>
+              furniture.name.toLowerCase() ===
+              searchValue.toLowerCase()
+          );
+
+          if (matchedFurniture) {
+            updated.rate = numberValue(matchedFurniture.rate);
+
+            updated.amount = round(
+              numberValue(updated.area) *
+                numberValue(matchedFurniture.rate) *
+                numberValue(updated.qty)
+            );
+          }
+
+          return updated;
+        }
+
+        // -------------------------
+        // Length / Width Changed
+        // -------------------------
+
+        if (field === "length" || field === "width") {
+
+          updated.length = numberValue(updated.length);
+          updated.width = numberValue(updated.width);
+
+          updated.area = round(
+            updated.length * updated.width
+          );
+
+          updated.amount = round(
+            updated.area *
+              numberValue(updated.rate) *
+              numberValue(updated.qty)
+          );
+
+          return updated;
+        }
+
+        // -------------------------
+        // Area Edited
+        // -------------------------
+
+        if (field === "area") {
+
+          updated.area = round(value);
+
+          updated.amount = round(
+            numberValue(updated.area) *
+              numberValue(updated.rate) *
+              numberValue(updated.qty)
+          );
+
+          return updated;
+        }
+
+        // -------------------------
+        // Rate Changed
+        // -------------------------
+
+        if (field === "rate") {
+
+          updated.rate = numberValue(value);
+
+          updated.amount = round(
+            numberValue(updated.area) *
+              updated.rate *
+              numberValue(updated.qty)
+          );
+
+          return updated;
+        }
+
+        // -------------------------
+        // Qty Changed
+        // -------------------------
+
+        if (field === "qty") {
+
+          updated.qty = numberValue(value);
+
+          updated.amount = round(
+            numberValue(updated.area) *
+              numberValue(updated.rate) *
+              updated.qty
+          );
+
+          return updated;
+        }
+
+        // -------------------------
+        // Amount Edited
+        // -------------------------
+
+        if (field === "amount") {
+
+          updated.amount = round(value);
+
+          return updated;
+        }
 
         return updated;
-      }
 
-      // -------------------------
-      // Area Edited
-      // -------------------------
+      })
+    );
 
-      if (field === "area") {
+  };
 
-        updated.area = round(value);
+  const selectFurniture = (itemId, furniture) => {
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== itemId) return item;
 
-        updated.amount = round(
-          numberValue(updated.area) *
-          numberValue(updated.rate) *
-          numberValue(updated.qty)
-        );
+        const rate = numberValue(furniture.rate);
 
-        return updated;
-      }
+        return {
+          ...item,
+          furnitureName: furniture.name,
+          rate,
+          amount: round(
+            numberValue(item.area) *
+              rate *
+              numberValue(item.qty)
+          ),
+        };
+      })
+    );
 
-      // -------------------------
-      // Rate Changed
-      // -------------------------
-
-      if (field === "rate") {
-
-        updated.rate = numberValue(value);
-
-        updated.amount = round(
-          numberValue(updated.area) *
-          updated.rate *
-          numberValue(updated.qty)
-        );
-
-        return updated;
-      }
-
-      // -------------------------
-      // Qty Changed
-      // -------------------------
-
-      if (field === "qty") {
-
-        updated.qty = numberValue(value);
-
-        updated.amount = round(
-          numberValue(updated.area) *
-          numberValue(updated.rate) *
-          updated.qty
-        );
-
-        return updated;
-      }
-
-      // -------------------------
-      // Amount Edited
-      // -------------------------
-
-      if (field === "amount") {
-
-        updated.amount = round(value);
-
-        return updated;
-      }
-
-      return updated;
-
-    })
-  );
-
-};
+    setFurnitureSuggestions((prev) => ({
+      ...prev,
+      [itemId]: [],
+    }));
+  };
 
   // ==========================================
   // CALCULATIONS
@@ -335,6 +510,7 @@ const grandTotal =
   // ==========================================
 
   const resetForm = () => {
+    setCustomerId(null);
     setCustomerName("");
     setPhone("");
     setAddress("");
@@ -361,8 +537,12 @@ const grandTotal =
   // SAVE QUOTATION
   // ==========================================
 
-  const saveQuotation = () => {
+  const saveQuotation = async () => {
+    if (savingQuotation) return;
+
+    // ------------------------------------------
     // Validation
+    // ------------------------------------------
 
     if (!customerName.trim()) {
       alert("Please enter customer name");
@@ -384,32 +564,16 @@ const grandTotal =
       return;
     }
 
-   const invalidItem = items.find(
-   (item) =>
-    !item.furnitureName ||
-    Number(item.length) <= 0 ||
-    Number(item.width) <= 0 ||
-    Number(item.area) <= 0 ||
-    Number(item.rate) <= 0 ||
-    Number(item.qty) <= 0 ||
-    Number(item.amount) <= 0
-   );
-
-    const currentYear = new Date().getFullYear();
-
-    const maxInvoice = quotations.reduce((max, quotation) => {
-    const parts = quotation.invoiceNo?.split("-");
-
-    if (!parts || parts.length !== 3) return max;
-
-    const number = Number(parts[2]);
-
-   return number > max ? number : max;
-   }, 0);
-
-   const nextInvoiceNo = `CP-${currentYear}-${String(
-   maxInvoice + 1
-   ).padStart(4, "0")}`;
+    const invalidItem = items.find(
+      (item) =>
+        !item.furnitureName ||
+        Number(item.length) <= 0 ||
+        Number(item.width) <= 0 ||
+        Number(item.area) <= 0 ||
+        Number(item.rate) <= 0 ||
+        Number(item.qty) <= 0 ||
+        Number(item.amount) <= 0
+    );
 
     if (invalidItem) {
       alert(
@@ -418,99 +582,224 @@ const grandTotal =
       return;
     }
 
-   const processedItems = items.map((item) => ({
-   ...item,
+    setSavingQuotation(true);
 
-   length: numberValue(item.length),
+    try {
+      // ----------------------------------------
+      // Find the existing customer.
+      // If this quotation uses a new customer,
+      // create that customer through Django first.
+      // ----------------------------------------
 
-   width: numberValue(item.width),
+      let selectedCustomer = customers.find(
+        (customer) =>
+          customer.id === customerId
+      );
 
-   area: numberValue(item.area),
+      if (!selectedCustomer) {
+        selectedCustomer = customers.find(
+          (customer) =>
+            String(customer.phone) ===
+            String(phone)
+        );
+      }
 
-   qty: numberValue(item.qty),
+      if (!selectedCustomer) {
+        selectedCustomer = await customerAPI.create({
+          name: customerName.trim(),
+          phone: phone.trim(),
+          email: "",
+          address: address.trim(),
+        });
 
-   rate: numberValue(item.rate),
+        setCustomers((prev) => [
+          selectedCustomer,
+          ...prev,
+        ]);
+      } else {
+        // Keep the quotation customer information
+        // synchronized with the selected customer.
+        if (
+          selectedCustomer.name !==
+            customerName.trim() ||
+          selectedCustomer.phone !==
+            phone.trim() ||
+          (selectedCustomer.address || "") !==
+            address.trim()
+        ) {
+          selectedCustomer =
+            await customerAPI.update(
+              selectedCustomer.id,
+              {
+                name: customerName.trim(),
+                phone: phone.trim(),
+                address: address.trim(),
+              }
+            );
 
-   amount: numberValue(item.amount),
-   }));
+          setCustomers((prev) =>
+            prev.map((customer) =>
+              customer.id ===
+              selectedCustomer.id
+                ? selectedCustomer
+                : customer
+            )
+          );
+        }
+      }
 
-    const quotation = {
-      id: editingId || Date.now(),
+      setCustomerId(selectedCustomer.id);
 
-     invoiceNo: editingId
-     ? quotations.find((q) => q.id === editingId)?.invoiceNo
-     : nextInvoiceNo,
+      // ----------------------------------------
+      // Invoice number
+      // ----------------------------------------
 
-      customerName,
-      phone,
-      address,
+      const currentYear =
+        new Date().getFullYear();
 
-      items: processedItems,
+      const maxInvoice = quotations.reduce(
+        (max, quotation) => {
+          const parts =
+            quotation.invoiceNo?.split("-");
 
-      gst,
-      discount,
+          if (!parts || parts.length !== 3) {
+            return max;
+          }
 
-      subtotal,
-      gstAmount,
-      discountAmount,
-      grandTotal,
+          const number = Number(parts[2]);
 
-      date: editingId
-      ? quotations.find((q) => q.id === editingId)?.date
-      : new Date().toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-     }),
-     };
-
-     const customerExists = customers.find(
-      (c) => c.phone === phone
-     );
-
-     if (!customerExists) {
-      const updatedCustomers = [
-        ...customers,
-        {
-          id: Date.now(),
-          name: customerName,
-          phone,
-          address,
+          return number > max
+            ? number
+            : max;
         },
-      ];
-
-      setCustomers(updatedCustomers);
-
-      localStorage.setItem(
-        "customers",
-        JSON.stringify(updatedCustomers)
-      );
-     }
-
-     let updatedQuotations;
-
-    if (editingId) {
-      updatedQuotations = quotations.map((q) =>
-        q.id === editingId ? quotation : q
+        0
       );
 
-      alert("Quotation updated successfully");
-    } else {
-      updatedQuotations = [
-        ...quotations,
-        quotation,
-      ];
+      const existingQuotation =
+        editingId
+          ? quotations.find(
+              (quotation) =>
+                quotation.id === editingId
+            )
+          : null;
 
-      alert("Quotation saved successfully");
+      const invoiceNo =
+        existingQuotation?.invoiceNo ||
+        `CP-${currentYear}-${String(
+          maxInvoice + 1
+        ).padStart(4, "0")}`;
+
+      // ----------------------------------------
+      // Prepare quotation items for Django.
+      // Do NOT send the frontend-only item ID.
+      // ----------------------------------------
+
+      const processedItems = items.map(
+        (item) => ({
+          furniture_name:
+            item.furnitureName.trim(),
+          length: numberValue(item.length),
+          width: numberValue(item.width),
+          area: numberValue(item.area),
+          rate: numberValue(item.rate),
+          qty: numberValue(item.qty),
+          amount: numberValue(item.amount),
+        })
+      );
+
+      // ----------------------------------------
+      // Django quotation payload
+      // ----------------------------------------
+
+      const quotationPayload = {
+        invoice_no: invoiceNo,
+        customer: selectedCustomer.id,
+        phone: phone.trim(),
+        address: address.trim(),
+
+        gst: round(gst),
+        discount: round(discount),
+
+        subtotal: round(subtotal),
+
+        gst_amount: round(gstAmount),
+
+        discount_amount:
+          round(discountAmount),
+
+        grand_total: round(grandTotal),
+
+        items: processedItems,
+      };
+
+      // ----------------------------------------
+      // CREATE
+      // ----------------------------------------
+
+      if (!editingId) {
+        const created =
+          await quotationAPI.create(
+            quotationPayload
+          );
+
+        const normalized =
+          normalizeQuotation(created);
+
+        setQuotations((prev) => [
+          normalized,
+          ...prev,
+        ]);
+
+        setSelectedQuotation(normalized);
+
+        alert(
+          "Quotation saved successfully"
+        );
+      }
+
+      // ----------------------------------------
+      // UPDATE
+      // ----------------------------------------
+
+      else {
+        const updated =
+          await quotationAPI.update(
+            editingId,
+            quotationPayload
+          );
+
+        const normalized =
+          normalizeQuotation(updated);
+
+        setQuotations((prev) =>
+          prev.map((quotation) =>
+            quotation.id === editingId
+              ? normalized
+              : quotation
+          )
+        );
+
+        setSelectedQuotation(normalized);
+
+        alert(
+          "Quotation updated successfully"
+        );
+      }
+
+      resetForm();
+    } catch (error) {
+      console.error(
+        "Quotation save failed:",
+        error
+      );
+
+      alert(
+        error.message ||
+          "Failed to save quotation."
+      );
+    } finally {
+      setSavingQuotation(false);
     }
-
-    setQuotations(updatedQuotations);
-
-    localStorage.setItem(
-      "quotationsV2",
-      JSON.stringify(updatedQuotations)
-    );
-    resetForm();
   };
 
   // ==========================================
@@ -520,32 +809,39 @@ const grandTotal =
   const handleEdit = (quotation) => {
     setEditingId(quotation.id);
 
-    setCustomerName(quotation.customerName);
+    setCustomerId(
+      quotation.customerId || null
+    );
+
+    setCustomerName(
+      quotation.customerName
+    );
+
     setPhone(quotation.phone);
     setAddress(quotation.address);
 
-   setItems(
-  quotation.items.map((item) => ({
-    ...item,
+    setItems(
+      quotation.items.map((item) => ({
+        ...item,
 
-    area:
-      item.area ??
-      round(
-        numberValue(item.length) *
-        numberValue(item.width)
-      ),
+        area:
+          item.area ??
+          round(
+            numberValue(item.length) *
+              numberValue(item.width)
+          ),
 
-    amount:
-      item.amount ??
-      round(
-        (item.area ??
-          numberValue(item.length) *
-            numberValue(item.width)) *
-          numberValue(item.rate) *
-          numberValue(item.qty)
-      ),
-  }))
-);
+        amount:
+          item.amount ??
+          round(
+            (item.area ??
+              numberValue(item.length) *
+                numberValue(item.width)) *
+              numberValue(item.rate) *
+              numberValue(item.qty)
+          ),
+      }))
+    );
 
     setGst(quotation.gst);
     setDiscount(quotation.discount);
@@ -556,10 +852,48 @@ const grandTotal =
     });
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Delete this quotation?")) {
+  const handleDelete = async (id) => {
+    if (
+      !window.confirm(
+        "Delete this quotation?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await quotationAPI.delete(id);
+
       setQuotations((prev) =>
-        prev.filter((q) => q.id !== id)
+        prev.filter(
+          (quotation) =>
+            quotation.id !== id
+        )
+      );
+
+      if (
+        selectedQuotation?.id === id
+      ) {
+        setSelectedQuotation(null);
+        setShowInvoiceModal(false);
+      }
+
+      if (editingId === id) {
+        resetForm();
+      }
+
+      alert(
+        "Quotation deleted successfully"
+      );
+    } catch (error) {
+      console.error(
+        "Quotation delete failed:",
+        error
+      );
+
+      alert(
+        error.message ||
+          "Failed to delete quotation."
       );
     }
   };
@@ -647,6 +981,17 @@ const grandTotal =
 
                   setCustomerName(value);
 
+                  const matchedCustomer =
+                    customers.find(
+                      (customer) =>
+                        customer.name.toLowerCase() ===
+                        value.trim().toLowerCase()
+                    );
+
+                  setCustomerId(
+                    matchedCustomer?.id || null
+                  );
+
                   const filtered = customers.filter((customer) =>
                     customer.name
                       .toLowerCase()
@@ -666,9 +1011,10 @@ const grandTotal =
                       key={customer.id}
                       className="p-3 cursor-pointer hover:bg-slate-600 text-white"
                       onClick={() => {
+                        setCustomerId(customer.id);
                         setCustomerName(customer.name);
                         setPhone(customer.phone);
-                        setAddress(customer.address);
+                        setAddress(customer.address || "");
                         setSuggestions([]);
                       }}
                     >
@@ -761,21 +1107,91 @@ const grandTotal =
                       >
 
                         <td className="p-3">
+                          <div className="relative">
 
-                          <input
-                            type="text"
-                            value={item.furnitureName}
-                            placeholder="Furniture Name"
-                            onChange={(e) =>
-                              handleItemChange(
-                                item.id,
-                                "furnitureName",
-                                e.target.value
-                              )
-                            }
-                            className="w-full p-2 rounded-lg bg-slate-900"
-                          />
+                            <input
+                              type="text"
+                              value={item.furnitureName}
+                              placeholder="Furniture Name"
+                              onChange={(e) =>
+                                handleItemChange(
+                                  item.id,
+                                  "furnitureName",
+                                  e.target.value
+                                )
+                              }
+                              onFocus={() => {
+                                const value = String(
+                                  item.furnitureName || ""
+                                ).trim();
 
+                                const filtered = value
+                                  ? furnitureCatalog.filter((furniture) =>
+                                      furniture.name
+                                        .toLowerCase()
+                                        .includes(value.toLowerCase())
+                                    )
+                                  : furnitureCatalog;
+
+                                setFurnitureSuggestions((prev) => ({
+                                  ...prev,
+                                  [item.id]: filtered,
+                                }));
+                              }}
+                              onBlur={() => {
+                                setTimeout(() => {
+                                  setFurnitureSuggestions((prev) => ({
+                                    ...prev,
+                                    [item.id]: [],
+                                  }));
+                                }, 150);
+                              }}
+                              className="w-full p-2 rounded-lg bg-slate-900"
+                            />
+
+                            {furnitureSuggestions[item.id]?.length > 0 && (
+                              <div className="absolute z-50 left-0 right-0 mt-1 bg-slate-700 rounded-lg shadow-xl max-h-48 overflow-y-auto border border-slate-600">
+
+                                {furnitureSuggestions[item.id].map(
+                                  (furniture) => (
+                                    <button
+                                      type="button"
+                                      key={furniture.id}
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        selectFurniture(
+                                          item.id,
+                                          furniture
+                                        );
+                                      }}
+                                      className="w-full text-left px-3 py-2 hover:bg-slate-600 text-white border-b border-slate-600 last:border-b-0"
+                                    >
+                                      <div className="font-medium">
+                                        {furniture.name}
+                                      </div>
+
+                                      <div className="text-xs text-slate-300">
+                                        ₹
+                                        {Number(
+                                          furniture.rate
+                                        ).toLocaleString("en-IN")}
+                                        {" / "}
+                                        {furniture.unit === "sqft"
+                                          ? "sq.ft"
+                                          : furniture.unit === "piece"
+                                            ? "piece"
+                                            : furniture.unit === "running_ft"
+                                              ? "running ft"
+                                              : furniture.unit || "unit"}
+                                      </div>
+                                    </button>
+                                  )
+                                )}
+
+                              </div>
+                            )}
+
+                          </div>
                         </td>
 
                         <td className="p-3">
@@ -1035,9 +1451,10 @@ const grandTotal =
   <>
     <button
       onClick={saveQuotation}
-      className="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-xl font-semibold text-white"
+      disabled={savingQuotation}
+      className="bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-3 rounded-xl font-semibold text-white"
     >
-      Update Quotation
+      {savingQuotation ? "Updating..." : "Update Quotation"}
     </button>
 
     <button
@@ -1051,9 +1468,10 @@ const grandTotal =
   <>
     <button
       onClick={saveQuotation}
-      className="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-xl font-semibold text-white"
+      disabled={savingQuotation}
+      className="bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-3 rounded-xl font-semibold text-white"
     >
-      Save Quotation
+      {savingQuotation ? "Saving..." : "Save Quotation"}
     </button>
 
     <button
@@ -1199,7 +1617,18 @@ const grandTotal =
 
                 <tbody>
 
-                  {quotations.length === 0 ? (
+                  {loadingQuotations ? (
+
+                    <tr>
+                      <td
+                        colSpan="6"
+                        className="p-6 text-center text-slate-400"
+                      >
+                        Loading quotations...
+                      </td>
+                    </tr>
+
+                  ) : quotations.length === 0 ? (
 
                     <tr>
 
