@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import toast from "react-hot-toast";
 import {
   Hammer,
   Mail,
@@ -157,6 +158,8 @@ const Login = () => {
       user: data.user,
       rememberMe,
      });
+
+     toast.success("Login successful!");
 
       // -------------------------
       // Redirect

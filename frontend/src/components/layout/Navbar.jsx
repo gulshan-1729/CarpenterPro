@@ -1,6 +1,7 @@
 import { Menu, LogOut, UserCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import toast from "react-hot-toast";
 
 const Navbar = ({ setSidebarOpen }) => {
   const navigate = useNavigate();
@@ -11,9 +12,12 @@ const Navbar = ({ setSidebarOpen }) => {
   } = useAuth();
 
   const handleLogout = () => {
-    logout();
-    navigate("/", { replace: true });
-  };
+  logout();
+
+  toast.success("Logout successful!");
+
+  navigate("/", { replace: true });
+ };
 
   const userName = user?.name || "User";
 
