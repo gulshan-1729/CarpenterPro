@@ -309,6 +309,27 @@ export const quotationAPI = {
 };
 
 // ==========================================
+// COMPANY API
+// ==========================================
+
+export const companyAPI = {
+
+  // GET /api/company/
+  get: () => {
+    return apiRequest("/company/");
+  },
+
+  // PATCH /api/company/
+  update: (company) => {
+    return apiRequest("/company/", {
+      method: "PATCH",
+      body: JSON.stringify(company),
+    });
+  },
+
+};
+
+// ==========================================
 // DEFAULT EXPORT
 // ==========================================
 

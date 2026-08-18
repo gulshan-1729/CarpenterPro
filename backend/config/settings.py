@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "customers",
     "furniture",
     "quotations",
+    "company",
     
 ]
 

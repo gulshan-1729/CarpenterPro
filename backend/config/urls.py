@@ -45,4 +45,9 @@ urlpatterns = [
     include("quotations.urls"),
     ),
 
+    path(
+    "api/company/",
+    include("company.urls"),
+    ),
+
 ]

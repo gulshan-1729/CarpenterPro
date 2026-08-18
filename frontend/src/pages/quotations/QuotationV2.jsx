@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import MainLayout from "../../components/layout/MainLayout";
-import { customerAPI, furnitureAPI, quotationAPI } from "../../services/api";
+import { customerAPI, furnitureAPI, quotationAPI, companyAPI } from "../../services/api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -28,18 +28,27 @@ const QuotationV2 = () => {
   const [loadingQuotations, setLoadingQuotations] = useState(true);
   const [savingQuotation, setSavingQuotation] = useState(false);
 
-  //Company Settings
-  const [company, setCompany] = useState(() => {
-  try {
-    const saved = localStorage.getItem("companyProfile");
-
-    return saved
-      ? JSON.parse(saved)
-      : {};
-  } catch {
-    return {};
-  }
-});
+  // Company Settings
+  // Backend/Django is the source of truth.
+  const [company, setCompany] = useState({
+    companyName: "Sharma Interiors & Furniture",
+    ownerName: "",
+    phone: "",
+    email: "",
+    website: "",
+    gst: "",
+    address: "",
+    logo: "",
+    signature: "",
+    bankName: "",
+    accountNumber: "",
+    ifsc: "",
+    upiId: "",
+    invoicePrefix: "CP",
+    startingInvoice: 1,
+    terms: "",
+    footer: "Thank you for your business.",
+  });
 
   // ==========================================
   // SEARCH / SORT
@@ -240,37 +249,62 @@ const QuotationV2 = () => {
   }, []);
 
   useEffect(() => {
-  const loadCompany = () => {
-    try {
-      const saved = localStorage.getItem(
-        "companyProfile"
-      );
+    let mounted = true;
 
-      if (saved) {
-        setCompany(JSON.parse(saved));
+    const normalizeCompany = (data) => ({
+      companyName: data?.company_name || data?.companyName || "Sharma Interiors & Furniture",
+      ownerName: data?.owner_name || data?.ownerName || "",
+      phone: data?.phone || "",
+      email: data?.email || "",
+      website: data?.website || "",
+      gst: data?.gst || "",
+      address: data?.address || "",
+      logo: data?.logo || "",
+      signature: data?.signature || "",
+      bankName: data?.bank_name || data?.bankName || "",
+      accountNumber: data?.account_number || data?.accountNumber || "",
+      ifsc: data?.ifsc || "",
+      upiId: data?.upi_id || data?.upiId || "",
+      invoicePrefix: data?.invoice_prefix || data?.invoicePrefix || "CP",
+      startingInvoice: Number(data?.starting_invoice ?? data?.startingInvoice ?? 1),
+      terms: data?.terms || "",
+      footer: data?.footer || "Thank you for your business.",
+    });
+
+    const loadCompany = async () => {
+      try {
+        const data = await companyAPI.get();
+        if (mounted) {
+          setCompany(normalizeCompany(data));
+        }
+      } catch (error) {
+        console.error("Failed to load company profile from backend:", error);
+
+        // Fallback only if the backend is temporarily unavailable.
+        try {
+          const saved = localStorage.getItem("companyProfile");
+          if (saved && mounted) {
+            setCompany(normalizeCompany(JSON.parse(saved)));
+          }
+        } catch (fallbackError) {
+          console.error("Failed to load local company profile:", fallbackError);
+        }
       }
-    } catch (error) {
-      console.error(
-        "Failed to load company profile:",
-        error
-      );
-    }
-  };
+    };
 
-  loadCompany();
+    loadCompany();
 
-  window.addEventListener(
-    "companyProfileUpdated",
-    loadCompany
-  );
+    const handleCompanyUpdated = () => {
+      loadCompany();
+    };
 
-  return () => {
-    window.removeEventListener(
-      "companyProfileUpdated",
-      loadCompany
-    );
-  };
-}, []);
+    window.addEventListener("companyProfileUpdated", handleCompanyUpdated);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener("companyProfileUpdated", handleCompanyUpdated);
+    };
+  }, []);
 
   // ==========================================
   // ITEM FUNCTIONS
@@ -654,40 +688,35 @@ const grandTotal =
       // Invoice number
       // ----------------------------------------
 
-      const currentYear =
-        new Date().getFullYear();
-
-      const maxInvoice = quotations.reduce(
-        (max, quotation) => {
-          const parts =
-            quotation.invoiceNo?.split("-");
-
-          if (!parts || parts.length !== 3) {
-            return max;
-          }
-
-          const number = Number(parts[2]);
-
-          return number > max
-            ? number
-            : max;
-        },
-        0
+      const currentYear = new Date().getFullYear();
+      const invoicePrefix = String(company.invoicePrefix || "CP")
+        .trim()
+        .toUpperCase();
+      const startingInvoice = Math.max(
+        1,
+        Number(company.startingInvoice || 1)
       );
 
-      const existingQuotation =
-        editingId
-          ? quotations.find(
-              (quotation) =>
-                quotation.id === editingId
-            )
-          : null;
+      const invoicePattern = new RegExp(
+        `^${invoicePrefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-${currentYear}-(\\d+)$`,
+        "i"
+      );
+
+      const maxInvoice = quotations.reduce((max, quotation) => {
+        const match = String(quotation.invoiceNo || "").match(invoicePattern);
+        if (!match) return max;
+
+        const number = Number(match[1]);
+        return Number.isFinite(number) && number > max ? number : max;
+      }, startingInvoice - 1);
+
+      const existingQuotation = editingId
+        ? quotations.find((quotation) => quotation.id === editingId)
+        : null;
 
       const invoiceNo =
         existingQuotation?.invoiceNo ||
-        `CP-${currentYear}-${String(
-          maxInvoice + 1
-        ).padStart(4, "0")}`;
+        `${invoicePrefix}-${currentYear}-${String(maxInvoice + 1).padStart(4, "0")}`;
 
       // ----------------------------------------
       // Prepare quotation items for Django.
@@ -2087,11 +2116,19 @@ if (company.logo) {
     );
   }
 
+  if (company.website) {
+    pdf.text(
+      `Website: ${company.website}`,
+      45,
+      47
+    );
+  }
+
   if (company.gst) {
     pdf.text(
       `GST: ${company.gst}`,
       45,
-      47
+      53
     );
   }
 
@@ -2106,7 +2143,7 @@ if (company.logo) {
     pdf.text(
       addressLines,
       45,
-      53
+      59
     );
   }
 
@@ -2386,12 +2423,45 @@ if (company.logo) {
                     });
 
                     // ==========================================
+                    // BANK DETAILS / TERMS
+                    // ==========================================
+
+                    let detailsY =
+                      (pdf.lastAutoTable?.finalY || finalY) + 10;
+
+                    if (company.bankName || company.accountNumber || company.ifsc || company.upiId) {
+                      pdf.setFontSize(10);
+                      pdf.setFont("helvetica", "bold");
+                      pdf.text("Bank Details", 14, detailsY);
+                      pdf.setFont("helvetica", "normal");
+
+                      const bankLines = [];
+                      if (company.bankName) bankLines.push(`Bank: ${company.bankName}`);
+                      if (company.accountNumber) bankLines.push(`Account No: ${company.accountNumber}`);
+                      if (company.ifsc) bankLines.push(`IFSC: ${company.ifsc}`);
+                      if (company.upiId) bankLines.push(`UPI ID: ${company.upiId}`);
+
+                      pdf.text(bankLines, 14, detailsY + 7);
+                      detailsY += 7 + bankLines.length * 5;
+                    }
+
+                    if (company.terms?.trim()) {
+                      pdf.setFontSize(10);
+                      pdf.setFont("helvetica", "bold");
+                      pdf.text("Terms & Conditions", 14, detailsY + 4);
+                      pdf.setFont("helvetica", "normal");
+                      pdf.setFontSize(8.5);
+
+                      const termLines = pdf.splitTextToSize(company.terms.trim(), 175);
+                      pdf.text(termLines, 14, detailsY + 11);
+                      detailsY += 11 + termLines.length * 4.5;
+                    }
+
+                    // ==========================================
                     // SIGNATURE
                     // ==========================================
 
-                    const signY =
-                      (pdf.lastAutoTable?.finalY ||
-                        finalY) + 30;
+                    const signY = detailsY + 18;
 
 // =====================================
 // COMPANY SIGNATURE
@@ -2402,8 +2472,8 @@ if (company.signature) {
     pdf.addImage(
       company.signature,
       "PNG",
-      160,
-      finalY + 45,
+      155,
+      signY - 18,
       35,
       20
     );
@@ -2425,7 +2495,7 @@ if (company.signature) {
                     pdf.setFontSize(10);
 
                     pdf.text(
-                      "For Sharma Interiors & Furniture",
+                      `For ${company.companyName || "Company"}`,
                       132,
                       signY + 15
                     );
@@ -2442,17 +2512,22 @@ if (company.signature) {
 
                     pdf.setFontSize(10);
 
-                    pdf.text(
-                      "Thank You For Choosing Sharma Interiors & Furniture",
-                      55,
-                      270
-                    );
+                    const footerText =
+                      company.footer ||
+                      `Thank You For Choosing ${company.companyName || "our company"}`;
 
-                    pdf.text(
-                      "For Queries Contact: 9960040174",
-                      75,
-                      277
-                    );
+                    pdf.setFontSize(9);
+                    const footerLines = pdf.splitTextToSize(footerText, 170);
+                    pdf.text(footerLines, 105, 270, { align: "center" });
+
+                    if (company.phone) {
+                      pdf.text(
+                        `For Queries Contact: ${company.phone}`,
+                        105,
+                        277,
+                        { align: "center" }
+                      );
+                    }
 
                     pdf.save(
                       `${selectedQuotation.invoiceNo}.pdf`
