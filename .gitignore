@@ -46,3 +46,6 @@ venv/
 # Node
 node_modules/
 dist/
+
+# Django static files
+backend/staticfiles/
