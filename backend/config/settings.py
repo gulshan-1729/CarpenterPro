@@ -96,24 +96,20 @@ INSTALLED_APPS = [
 # ============================================================
 
 MIDDLEWARE = [
-
     "django.middleware.security.SecurityMiddleware",
 
-    # WhiteNoise serves Django static files on Render.
-    "whitenoise.middleware.WhiteNoiseMiddleware",
-
-    # CORS must be before CommonMiddleware.
+    # CORS MUST be before middleware that can generate responses
     "corsheaders.middleware.CorsMiddleware",
+
+    "whitenoise.middleware.WhiteNoiseMiddleware",
 
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
-
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
-
 
 # ============================================================
 # URL / WSGI
